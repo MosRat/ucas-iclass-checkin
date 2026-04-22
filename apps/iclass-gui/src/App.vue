@@ -396,7 +396,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(63,131,248,0.18),_rgba(244,247,251,1)_34%,_rgba(232,238,247,1)_100%)] text-ink-900">
+  <div class="relative isolate h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(63,131,248,0.18),_rgba(244,247,251,1)_34%,_rgba(232,238,247,1)_100%)] text-ink-900">
+    <div class="pointer-events-none absolute -left-20 top-16 h-56 w-56 rounded-full bg-accent-200/45 blur-3xl"></div>
+    <div class="pointer-events-none absolute right-[-4rem] top-[-2rem] h-64 w-64 rounded-full bg-sky-200/40 blur-3xl"></div>
+    <div class="pointer-events-none absolute bottom-[-5rem] left-1/3 h-72 w-72 rounded-full bg-white/55 blur-3xl"></div>
     <div class="mx-auto flex h-screen max-w-[1600px] flex-col overflow-hidden">
       <AppTitleBar
         :desktop-shell="desktopShell"
@@ -411,37 +414,47 @@ onBeforeUnmount(() => {
       <main class="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6 md:pb-8">
         <div class="mx-auto max-w-7xl space-y-5">
           <section
-            class="glass-panel flex flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between"
+            class="glass-panel relative overflow-hidden px-5 py-5 md:px-6"
             :class="{
               'border-accent-200/70': topStatus.tone === 'info',
               'border-emerald-200/70': topStatus.tone === 'success',
               'border-rose-200/80': topStatus.tone === 'error'
             }"
           >
-            <div class="flex min-w-0 items-start gap-4">
-              <div
-                class="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl text-sm font-semibold"
-                :class="{
-                  'bg-accent-100 text-accent-700': topStatus.tone === 'info',
-                  'bg-emerald-100 text-emerald-700': topStatus.tone === 'success',
-                  'bg-rose-100 text-rose-700': topStatus.tone === 'error'
-                }"
-              >
-                {{ topStatus.tone === "success" ? "✓" : topStatus.tone === "error" ? "!" : "…" }}
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 w-52 opacity-80"
+              :class="{
+                'bg-[radial-gradient(circle_at_center,_rgba(96,165,250,0.18),_rgba(255,255,255,0))]': topStatus.tone === 'info',
+                'bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.16),_rgba(255,255,255,0))]': topStatus.tone === 'success',
+                'bg-[radial-gradient(circle_at_center,_rgba(244,63,94,0.16),_rgba(255,255,255,0))]': topStatus.tone === 'error'
+              }"
+            ></div>
+            <div class="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div class="flex min-w-0 items-start gap-4">
+                <div
+                  class="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl text-sm font-semibold"
+                  :class="{
+                    'bg-accent-100 text-accent-700': topStatus.tone === 'info',
+                    'bg-emerald-100 text-emerald-700': topStatus.tone === 'success',
+                    'bg-rose-100 text-rose-700': topStatus.tone === 'error'
+                  }"
+                >
+                  {{ topStatus.tone === "success" ? "✓" : topStatus.tone === "error" ? "!" : "…" }}
+                </div>
+                <div class="min-w-0">
+                  <h2 class="text-lg font-semibold text-ink-950">{{ topStatus.title }}</h2>
+                  <p class="mt-1 text-sm leading-6 text-ink-600">{{ topStatus.message }}</p>
+                </div>
               </div>
-              <div class="min-w-0">
-                <h2 class="text-base font-semibold text-ink-950">{{ topStatus.title }}</h2>
-                <p class="mt-1 text-sm leading-6 text-ink-600">{{ topStatus.message }}</p>
+              <div class="flex flex-wrap items-center gap-2 text-sm text-ink-500">
+                <span class="rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)]">
+                  {{ scheduleViewMode === "week" ? "周视图" : "日视图" }}
+                </span>
+                <span class="rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)]">
+                  {{ dashboard ? `已同步 ${dashboard.schedules.length} 个时段` : "等待同步" }}
+                </span>
+                <span class="rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)]">{{ statusMessage }}</span>
               </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2 text-sm text-ink-500">
-              <span class="rounded-full bg-white/80 px-3 py-1">
-                {{ scheduleViewMode === "week" ? "周视图" : "日视图" }}
-              </span>
-              <span class="rounded-full bg-white/80 px-3 py-1">
-                {{ dashboard ? `已同步 ${dashboard.schedules.length} 个时段` : "等待同步" }}
-              </span>
-              <span class="rounded-full bg-white/80 px-3 py-1">{{ statusMessage }}</span>
             </div>
           </section>
 

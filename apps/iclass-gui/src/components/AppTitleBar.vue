@@ -34,34 +34,36 @@ function handlePointerDown(event: MouseEvent) {
 
 <template>
   <header
-    class="sticky top-0 z-30 flex h-14 items-center border-b border-white/60 bg-white/70 px-3 backdrop-blur-xl select-none"
+    class="sticky top-0 z-30 flex h-16 items-center border-b border-white/60 bg-white/72 px-3 backdrop-blur-xl select-none md:px-4"
     :data-tauri-drag-region="desktopShell ? '' : undefined"
     @mousedown="handlePointerDown"
   >
     <div class="flex min-w-0 flex-1 items-center gap-3">
-      <div class="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent-500 text-sm font-semibold text-white shadow-pane">
-        U
+      <div class="flex h-10 w-10 items-center justify-center rounded-[1.35rem] bg-[linear-gradient(160deg,rgba(24,80,186,1),rgba(55,124,242,0.96))] text-sm font-semibold text-white shadow-[0_14px_30px_rgba(28,86,190,0.28)]">
+        I
       </div>
       <div class="min-w-0">
-        <p class="truncate text-sm font-semibold text-ink-900">UCAS iCLASS</p>
-        <p class="truncate text-xs text-ink-500">课程查看与打卡</p>
+        <p class="truncate text-sm font-semibold tracking-[0.01em] text-ink-900">UCAS iCLASS</p>
+        <p class="truncate text-xs text-ink-500">课程工作台</p>
       </div>
     </div>
 
-    <div v-if="desktopShell" class="ml-4 flex items-center gap-1.5 no-drag">
+    <div v-if="desktopShell" class="ml-4 flex items-center gap-2 no-drag">
       <button class="titlebar-btn titlebar-btn-subtle" title="设置" type="button" @click="$emit('settings')">
         <Settings2 class="titlebar-icon" aria-hidden="true" />
       </button>
-      <button class="titlebar-btn titlebar-btn-window" title="最小化" type="button" @click="$emit('minimize')">
-        <Minus class="titlebar-icon" aria-hidden="true" />
-      </button>
-      <button class="titlebar-btn titlebar-btn-window" :title="maximized ? '还原' : '最大化'" type="button" @click="$emit('maximize')">
-        <SquareStack v-if="maximized" class="titlebar-icon" aria-hidden="true" />
-        <Square v-else class="titlebar-icon" aria-hidden="true" />
-      </button>
-      <button class="titlebar-btn titlebar-btn-danger" title="关闭" type="button" @click="$emit('close')">
-        <X class="titlebar-icon" aria-hidden="true" />
-      </button>
+      <div class="titlebar-window-group">
+        <button class="titlebar-btn titlebar-btn-window" title="最小化" type="button" @click="$emit('minimize')">
+          <Minus class="titlebar-icon" aria-hidden="true" />
+        </button>
+        <button class="titlebar-btn titlebar-btn-window" :title="maximized ? '还原' : '最大化'" type="button" @click="$emit('maximize')">
+          <SquareStack v-if="maximized" class="titlebar-icon" aria-hidden="true" />
+          <Square v-else class="titlebar-icon" aria-hidden="true" />
+        </button>
+        <button class="titlebar-btn titlebar-btn-danger" title="关闭" type="button" @click="$emit('close')">
+          <X class="titlebar-icon" aria-hidden="true" />
+        </button>
+      </div>
     </div>
   </header>
 </template>
