@@ -2,8 +2,4 @@
 /.env
 /.env.*
 *.local.toml
-/apps/iclass-gui/node_modules
-/apps/iclass-gui/dist
-/apps/iclass-gui/package-lock.json
 docs/api/UCAS-iCLASS.agent-bundle.*
-**/keystore.properties

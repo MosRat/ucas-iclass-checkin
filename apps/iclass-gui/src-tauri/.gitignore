@@ -1,1 +1,3 @@
-/target
+gen/android/keystore.properties
+gen/android/key.properties
+gen/android/local.properties

@@ -1,5 +1,5 @@
 *.iml
-.gradle
+.gradle/
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -8,12 +8,22 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
-build
+build/
 /captures
-.externalNativeBuild
-.cxx
-local.properties
+.externalNativeBuild/
+.cxx/
 key.properties
 
-/.tauri
+/app/build/
+/buildSrc/build/
+/buildSrc/.gradle/
+/buildSrc/.kotlin/
+/app/src/main/jniLibs/**/*.so
+/app/src/main/assets/tauri.conf.json
+/app/tauri.build.gradle.kts
+/app/proguard-tauri.pro
+/app/tauri.properties
+/problems-report.html
+/reports/
+/.tauri/
 /tauri.settings.gradle
