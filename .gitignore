@@ -6,3 +6,4 @@
 /apps/iclass-gui/dist
 /apps/iclass-gui/package-lock.json
 docs/api/UCAS-iCLASS.agent-bundle.*
+src-tauri/gen/android/keystore.properties
