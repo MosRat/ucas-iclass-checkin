@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">UCAS iCLASS</string>
     <string name="main_activity_title">UCAS iCLASS</string>
+    <string name="keep_alive_channel_name">自动打卡后台服务</string>
+    <string name="keep_alive_channel_description">保持 UCAS iCLASS 在后台运行，以便自动打卡持续生效。</string>
+    <string name="keep_alive_notification_title">UCAS iCLASS 正在后台运行</string>
+    <string name="keep_alive_notification_text">自动打卡保活已启用，应用会定时检查最近课程。</string>
 </resources>
