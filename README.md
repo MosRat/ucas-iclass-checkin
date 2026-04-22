@@ -1,165 +1,116 @@
-# UCAS iCLASS Check-in Workspace
+# UCAS iCLASS Check-in
 
-这是一个按“自底向上”组织的 Rust workspace，用来实现 UCAS iCLASS 的登录、课程查询和打卡能力，并为后续桌面端和移动端 GUI 预留稳定核心层。
+一个用于访问 UCAS iCLASS 的 Rust workspace，提供命令行与桌面/移动端图形界面所需的基础能力。
 
-## Workspace 结构
+项目当前聚焦于以下内容：
 
-- `crates/iclass-domain`
-  业务领域模型，只保留真正会被上层使用的数据字段。
-- `crates/iclass-api`
-  HTTP 请求和接口 DTO 解析，负责把服务端返回转换成领域模型。
-- `crates/iclass-session`
-  会话持久化、本地凭证管理、自动重新登录和带重试的调用入口。
-- `crates/iclass-core`
-  登录、查询、选取最合适课程并发起打卡的核心流程。
-- `crates/iclass-cli`
-  命令行入口，适合本地调试和自动化运行。
-- `crates/iclass-gui`
-  给未来 Tauri v2 GUI 复用的桥接层，目前提供可序列化的 dashboard / check-in 视图模型。
+- 登录与会话复用
+- 课程与课表查询
+- 课程签到入口
+- 本地会话与应用设置持久化
+- 基于 Tauri v2 的跨平台 GUI 构建基础
 
-## 设计要点
+## 功能边界
 
-- 只提取实际使用到的接口字段，避免把整个服务端 payload 原样污染到上层。
-- 使用 `reqwest + rustls`，避免系统 OpenSSL 依赖。
-- CLI 使用 `mimalloc` 作为全局分配器。
-- `core` 只依赖 `session/domain` 暴露能力，GUI 层后续可以直接调用。
-- 支持把 session 和凭证持久化到本地 JSON 文件，便于 CLI 和 GUI 共享。
-- 调用需要登录的接口时，会优先复用已有 session；如果识别到疑似 session 失效，会尝试重新登录并重试一次。
+本项目只实现与 iCLASS 交互所需的最小能力，不追求还原服务端全部字段，也不存放与功能无关的用户数据。
 
-## 环境变量
+项目默认按“本地优先”方式工作：
 
-建议在项目根目录放一个 `.env` 文件：
+- 凭证与会话仅保存在当前设备
+- 不内置远程转发、云同步或第三方账号系统
+- 不收集、不上传个人课表、签到记录或账号信息
 
-```env
-UCAS_ICLASS_ACCOUNT=202528014629003
-UCAS_ICLASS_PASSWORD=Ucas@2025
-UCAS_ICLASS_BASE_URL=https://iclass.ucas.edu.cn:8181
+## 仓库结构
+
+- `crates/`
+  Rust 核心库与 CLI。
+- `apps/iclass-gui/`
+  Tauri v2 GUI 工程，前端为 Vue 3 + Tailwind CSS。
+- `docs/`
+  接口整理文档与本地 API 资料。
+
+## 快速开始
+
+### 1. 准备环境
+
+- Rust stable
+- Node.js 22+
+- pnpm
+- Windows / macOS / Linux 其一
+
+如需构建 Android，还需要 Android SDK、NDK、Java 17。
+
+### 2. 配置环境变量
+
+复制 `.env.example` 并填写你自己的账号信息：
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-可选：
+建议只在本地保存 `.env`，不要提交真实凭证、session 文件、日志或签名材料。
 
-```env
-UCAS_ICLASS_SESSION_PATH=F:\\WorkSpace\\Rust\\ucas-iclass-chechin\\.session.json
-RUST_LOG=info
-```
-
-仓库中应该提交 `.env.example`，但不要提交真实 `.env`、本地 session 文件、签名材料或任何个人凭证。
-
-## 提交边界
-
-推荐提交到 GitHub 的内容：
-
-- Rust workspace 源码、测试、文档和 `Cargo.lock`
-- `apps/iclass-gui/src` 与 `src-tauri/src` 下的手写源码
-- Tauri capability/schema 文件
-- `src-tauri/gen/android` 下稳定的 Android 工程骨架与手写原生代码
-- Git hooks、CI/workflows、示例配置和图标资源
-
-不应提交的内容：
-
-- `target/`、`dist/`、`node_modules/`
-- `apps/iclass-gui/src/**/*.js` 这类由 TypeScript 源码旁路生成的编译副产物
-- `.env`、真实账号密码、session JSON、日志文件
-- Android `keystore.properties`、`local.properties`、keystore 文件与构建输出
-- 临时调试文件、模拟器截图、平台本地缓存
-
-目前仓库已经按这个边界做了清理，公开仓库时可以直接沿用。
-
-## GitHub Actions
-
-- `.github/workflows/ci.yml`
-  负责 PR / `main` 分支的构建校验，执行前端构建、`cargo test --workspace` 和 `clippy`。
-- `.github/workflows/release.yml`
-  负责手动触发或 `app-v*` tag 的桌面端与 Android 构建发布。
-
-Android release 若需要签名，请在 GitHub Secrets 中提供：
-
-- `ANDROID_KEYSTORE_BASE64`
-- `ANDROID_KEY_ALIAS`
-- `ANDROID_KEYSTORE_PASSWORD`
-
-## CLI 用法
-
-登录并保存 session：
+### 3. 运行 CLI
 
 ```powershell
 cargo run -p iclass-cli -- login
-```
-
-登录但不保存密码：
-
-```powershell
-cargo run -p iclass-cli -- login --remember-password false
-```
-
-查看保存的 session：
-
-```powershell
-cargo run -p iclass-cli -- session
-```
-
-查询指定日期课程：
-
-```powershell
-cargo run -p iclass-cli -- today --date 2026-04-23
-```
-
-查询学期和课程：
-
-```powershell
-cargo run -p iclass-cli -- semesters
 cargo run -p iclass-cli -- courses
-```
-
-尝试打卡：
-
-```powershell
 cargo run -p iclass-cli -- checkin
-cargo run -p iclass-cli -- checkin --date 2026-04-23
-cargo run -p iclass-cli -- checkin --mode id
 ```
 
-## 当前验证结果
-
-已使用你提供的 mock 账号验证：
-
-- `login` 成功
-- `today --date 2026-04-23` 成功返回课程列表
-- `checkin --date 2026-04-23` 返回 `ERRCODE=101` / `二维码已失效！`
-
-这与“测试账户所有打卡都失败”的预期一致。
-
-## Core 测试
-
-默认只跑稳定的单元测试和 mock 集成测试：
+### 4. 运行 GUI
 
 ```powershell
-cargo test -p iclass-core
+cd apps/iclass-gui
+pnpm install
+pnpm tauri dev
 ```
 
-显式启用 live 接口测试：
+## 构建
+
+### Rust 校验
 
 ```powershell
-$env:ICLASS_RUN_LIVE_TESTS='1'
-$env:UCAS_ICLASS_ACCOUNT='202528014629003'
-$env:UCAS_ICLASS_PASSWORD='Ucas@2025'
-cargo test -p iclass-core --test live_core -- --nocapture
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
-如果还想验证真实打卡失败路径，再额外提供测试日期并启用 check-in live 测试：
+### GUI 构建
 
 ```powershell
-$env:ICLASS_RUN_LIVE_TESTS='1'
-$env:ICLASS_RUN_LIVE_CHECKIN_TESTS='1'
-$env:UCAS_ICLASS_ACCOUNT='202528014629003'
-$env:UCAS_ICLASS_PASSWORD='Ucas@2025'
-$env:UCAS_ICLASS_TEST_DATE='2026-04-23'
-cargo test -p iclass-core --test live_core -- --nocapture
+cd apps/iclass-gui
+pnpm build
+pnpm tauri build
 ```
 
-## 下一步建议
+## 隐私与风险提示
 
-1. 在 `iclass-gui` 基础上接入 Tauri v2 command 层。
-2. 为 `session` 增加更安全的凭证存储后端，例如系统钥匙串。
-3. 增加定时打卡策略、前后台通知和多策略选课规则。
-4. 增加 live integration tests，并通过环境变量控制是否执行。
+使用这类工具前，请先确认你了解并愿意承担以下风险：
+
+- 账号凭证一旦泄露，可能影响你的个人账户安全。
+- 第三方客户端可能因接口变化、策略变化或网络异常而失效。
+- 自动化签到能力应仅在你明确知情并自行负责的前提下使用。
+- 请勿在公共仓库、截图、日志或 issue 中暴露学号、密码、session、二维码数据或签名文件。
+
+如果你计划公开部署或分享构建产物，建议：
+
+- 使用独立测试账号进行验证
+- 将签名材料与敏感配置保存在本地或 CI Secret 中
+- 在发布前再次检查 `.env`、session 文件、日志与构建缓存是否被忽略
+
+## 发布与 CI
+
+仓库包含 GitHub Actions 工作流，用于：
+
+- 常规构建校验
+- 桌面端发布构建
+- Android 发布构建
+
+Android 签名请通过 GitHub Secrets 提供，不要将 keystore 或真实配置提交到仓库。
+
+## 说明
+
+本项目仅用于学习、研究与个人设备上的本地使用场景。请遵守你所在组织的相关规定，并自行判断是否适合在真实环境中使用。
+
+许可证：MIT
