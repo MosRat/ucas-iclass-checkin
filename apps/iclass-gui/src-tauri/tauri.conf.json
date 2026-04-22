@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "UCAS iCLASS",
+  "productName": "ucas_iclass",
   "version": "0.1.0",
   "identifier": "app.iclass.mosrat",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "UCAS iCLASS",
+        "title": "ucas_iclass",
         "width": 1340,
         "height": 860,
         "minWidth": 360,
@@ -25,7 +25,8 @@
         "closable": true,
         "decorations": false,
         "fullscreen": false,
-        "visible": true
+        "visible": true,
+        "scrollBarStyle": "fluentOverlay"
       }
     ],
     "security": {
