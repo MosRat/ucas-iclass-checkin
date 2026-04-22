@@ -7,6 +7,7 @@ use iclass_gui::{
     load_dashboard_for, load_week_schedule_for,
 };
 use tauri::{AppHandle, State};
+use tracing::{debug, info};
 
 use crate::{
     desktop::{read_autostart_enabled, write_autostart_enabled},
@@ -23,6 +24,7 @@ pub(crate) async fn login(
     state: State<'_, AppState>,
     request: LoginRequest,
 ) -> Result<DashboardSnapshot, GuiErrorPayload> {
+    info!(account = %request.account, "processing GUI login request");
     let credentials = Credentials {
         account: request.account,
         password: request.password,
@@ -46,6 +48,7 @@ pub(crate) async fn load_dashboard(
     date: Option<String>,
 ) -> Result<DashboardSnapshot, GuiErrorPayload> {
     let date = parse_date(date)?;
+    debug!(%date, "loading dashboard snapshot");
     load_dashboard_for(&state.core, date)
         .await
         .map_err(map_gui_error)
@@ -58,6 +61,7 @@ pub(crate) async fn load_week_schedule(
     date: Option<String>,
 ) -> Result<WeeklyScheduleSnapshot, GuiErrorPayload> {
     let date = parse_date(date)?;
+    debug!(%date, "loading weekly schedule snapshot");
     load_week_schedule_for(&state.core, date)
         .await
         .map_err(map_gui_error)
@@ -69,6 +73,10 @@ pub(crate) async fn check_in(
     state: State<'_, AppState>,
     request: CheckInRequest,
 ) -> Result<CheckInViewModel, GuiErrorPayload> {
+    info!(
+        schedule_id = %request.schedule.schedule_id,
+        "processing GUI check-in request"
+    );
     state
         .core
         .check_in_for_schedule(
@@ -90,6 +98,7 @@ pub(crate) async fn get_desktop_settings(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<DesktopSettingsPayload, GuiErrorPayload> {
+    debug!("reading desktop integration settings");
     Ok(DesktopSettingsPayload {
         autostart_enabled: read_autostart_enabled(&app)?,
         close_to_tray: state.close_to_tray(),
@@ -105,6 +114,11 @@ pub(crate) async fn update_desktop_settings(
     state: State<'_, AppState>,
     request: UpdateDesktopSettingsRequest,
 ) -> Result<DesktopSettingsPayload, GuiErrorPayload> {
+    info!(
+        autostart_enabled = request.autostart_enabled,
+        close_to_tray = request.close_to_tray,
+        "updating desktop integration settings"
+    );
     state.set_close_to_tray(cfg!(feature = "desktop-tray") && request.close_to_tray);
     write_autostart_enabled(&app, request.autostart_enabled)?;
 
@@ -119,6 +133,7 @@ pub(crate) async fn update_desktop_settings(
 /// Clears the locally persisted session token.
 #[tauri::command]
 pub(crate) async fn logout(state: State<'_, AppState>) -> Result<(), GuiErrorPayload> {
+    info!("clearing persisted GUI session");
     state
         .core
         .session_client()

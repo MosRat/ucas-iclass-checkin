@@ -11,10 +11,8 @@ use tauri::Manager;
 
 /// Runs the Tauri desktop application.
 pub fn run() {
-    tracing_setup::init();
-
     let state = AppState::new();
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default().plugin(tracing_setup::plugin());
 
     #[cfg(all(
         feature = "desktop-autostart",

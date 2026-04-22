@@ -1,11 +1,18 @@
-//! Tracing initialization for the desktop backend.
+//! Tracing integration for the desktop backend.
 
-/// Initializes the process-wide tracing subscriber for the desktop backend.
-pub(crate) fn init() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .init();
+use tauri_plugin_tracing::{Builder, LevelFilter};
+
+/// Builds the tracing plugin with a default subscriber and rotating file logging.
+pub(crate) fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    let max_level = if cfg!(debug_assertions) {
+        LevelFilter::DEBUG
+    } else {
+        LevelFilter::INFO
+    };
+
+    Builder::new()
+        .with_max_level(max_level)
+        .with_file_logging()
+        .with_default_subscriber()
+        .build()
 }

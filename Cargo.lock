@@ -416,8 +416,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
  "serde",
+ "wasm-bindgen",
  "windows-link 0.2.1",
 ]
 
@@ -466,6 +468,15 @@ name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
+
+[[package]]
+name = "colored"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
+dependencies = [
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "combine"
@@ -1809,8 +1820,8 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
+ "tauri-plugin-tracing",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -2476,6 +2487,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "num_threads"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c7398b9c8b70908f6371f47ed36737907c87c52af34c268fed0bf0ceb92ead9"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -3437,6 +3457,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rolling-file"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8395b4f860856b740f20a296ea2cd4d823e81a2658cf05ef61be22916026a906"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4039,6 +4068,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "symlink"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7973cce6668464ea31f176d85b13c7ab3bba2cb3b77a2ed26abd7801688010a"
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4221,6 +4256,7 @@ dependencies = [
  "tauri-utils",
  "thiserror 2.0.18",
  "tokio",
+ "tracing",
  "tray-icon",
  "url",
  "webkit2gtk",
@@ -4324,6 +4360,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-tracing"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb9d918bfbcc9ff6b1a69fb9d3a1625407566a7a5a1c0b6b61e16dd2c4e55d2c"
+dependencies = [
+ "colored",
+ "memchr",
+ "rolling-file",
+ "serde",
+ "serde_repr",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-core",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tauri-runtime"
 version = "2.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4367,6 +4425,7 @@ dependencies = [
  "tao",
  "tauri-runtime",
  "tauri-utils",
+ "tracing",
  "url",
  "webkit2gtk",
  "webview2-com",
@@ -4515,7 +4574,9 @@ checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
 dependencies = [
  "deranged",
  "itoa",
+ "libc",
  "num-conv",
+ "num_threads",
  "powerfmt",
  "serde_core",
  "time-core",
@@ -4572,6 +4633,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -4776,6 +4838,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-appender"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "050686193eb999b4bb3bc2acfa891a13da00f79734704c4b8b4ef1a10b368a3c"
+dependencies = [
+ "crossbeam-channel",
+ "symlink",
+ "thiserror 2.0.18",
+ "time",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-attributes"
 version = "0.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4820,6 +4895,7 @@ dependencies = [
  "sharded-slab",
  "smallvec",
  "thread_local",
+ "time",
  "tracing",
  "tracing-core",
  "tracing-log",
@@ -5935,6 +6011,7 @@ dependencies = [
  "soup3",
  "tao-macros",
  "thiserror 2.0.18",
+ "tracing",
  "url",
  "webkit2gtk",
  "webkit2gtk-sys",
