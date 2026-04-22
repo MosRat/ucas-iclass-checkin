@@ -99,7 +99,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: restore android signing materials
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         working-directory: apps/iclass-gui/src-tauri/gen/android
         shell: bash
         run: |
