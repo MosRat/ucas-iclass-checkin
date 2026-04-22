@@ -4,7 +4,14 @@ import { isTauriRuntime } from "../lib/tauri";
 
 export function useDesktopWindow() {
   const maximized = ref(false);
-  const desktopShell = computed(() => isTauriRuntime());
+  const mobileShell = computed(() => {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  });
+  const desktopShell = computed(() => isTauriRuntime() && !mobileShell.value);
 
   async function runWindowCommand(task: () => Promise<void>) {
     try {
