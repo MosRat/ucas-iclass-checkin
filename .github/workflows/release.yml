@@ -104,7 +104,7 @@ jobs:
         working-directory: apps/iclass-gui/src-tauri/gen/android
         shell: bash
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > iclass-release.jks
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/iclass-release.jks
           cat > keystore.properties <<'EOF'
           storeFile=iclass-release.jks
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
