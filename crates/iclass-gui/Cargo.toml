@@ -1,0 +1,14 @@
+[package]
+name = "iclass-gui"
+version = "0.1.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono.workspace = true
+iclass-core = { version = "0.1.0", path = "../iclass-core" }
+iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true

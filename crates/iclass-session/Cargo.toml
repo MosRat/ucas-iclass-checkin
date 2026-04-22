@@ -1,0 +1,18 @@
+[package]
+name = "iclass-session"
+version = "0.1.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono.workspace = true
+dirs.workspace = true
+iclass-api = { version = "0.1.0", path = "../iclass-api" }
+iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "fs"] }
+tracing.workspace = true

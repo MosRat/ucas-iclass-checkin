@@ -1,0 +1,44 @@
+[workspace]
+members = [ "apps/iclass-gui/src-tauri",
+    "crates/iclass-api",
+    "crates/iclass-cli",
+    "crates/iclass-core",
+    "crates/iclass-domain",
+    "crates/iclass-gui",
+    "crates/iclass-session",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Codex"]
+rust-version = "1.89"
+
+[workspace.dependencies]
+anyhow = "1.0.98"
+chrono = { version = "0.4.41", default-features = false, features = ["clock", "serde", "std"] }
+dirs = "6.0.0"
+reqwest = { version = "0.12.22", default-features = false, features = ["charset", "http2", "json", "macos-system-configuration", "multipart", "rustls-tls"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.142"
+thiserror = "2.0.12"
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "signal"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
+url = { version = "2.5.7", features = ["serde"] }
+uuid = { version = "1.18.0", features = ["serde", "v4"] }
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unwrap_used = "deny"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

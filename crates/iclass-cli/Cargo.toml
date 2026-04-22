@@ -1,0 +1,25 @@
+[package]
+name = "iclass-cli"
+version = "0.1.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[features]
+default = ["allocator-mimalloc"]
+allocator-mimalloc = ["dep:mimalloc"]
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+clap = { version = "4.6.1", features = ["derive", "env"] }
+dotenvy = "0.15.7"
+iclass-api = { version = "0.1.0", path = "../iclass-api" }
+iclass-core = { version = "0.1.0", path = "../iclass-core" }
+iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
+iclass-session = { version = "0.1.0", path = "../iclass-session" }
+mimalloc = { version = "0.1.49", optional = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }

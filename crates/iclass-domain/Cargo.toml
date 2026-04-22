@@ -1,0 +1,13 @@
+[package]
+name = "iclass-domain"
+version = "0.1.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde = { workspace = true, features = ["derive"] }
+url = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["serde", "v4"] }

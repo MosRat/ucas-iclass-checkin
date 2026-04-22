@@ -1,0 +1,36 @@
+[package]
+name = "iclass-gui-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["allocator-mimalloc", "desktop-tray", "desktop-autostart"]
+allocator-mimalloc = ["dep:mimalloc"]
+desktop-tray = ["tauri/tray-icon"]
+desktop-autostart = ["dep:tauri-plugin-autostart"]
+
+[dependencies]
+chrono = { workspace = true, features = ["clock"] }
+iclass-api = { version = "0.1.0", path = "../../../crates/iclass-api" }
+iclass-core = { version = "0.1.0", path = "../../../crates/iclass-core" }
+iclass-domain = { version = "0.1.0", path = "../../../crates/iclass-domain" }
+iclass-gui = { version = "0.1.0", path = "../../../crates/iclass-gui" }
+iclass-session = { version = "0.1.0", path = "../../../crates/iclass-session" }
+mimalloc = { version = "0.1.49", optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tauri = { version = "2.10.1", features = ["config-json5"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.5.6", features = [] }
+
+[target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
+tauri-plugin-autostart = { version = "2.5.1", optional = true }

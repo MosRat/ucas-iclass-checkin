@@ -1,0 +1,22 @@
+[package]
+name = "iclass-core"
+version = "0.1.0"
+edition = "2024"
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono.workspace = true
+iclass-api = { version = "0.1.0", path = "../iclass-api" }
+iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
+iclass-session = { version = "0.1.0", path = "../iclass-session" }
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+dotenvy = "0.15.7"
+httpmock = "0.8.3"
+tempfile = "3.27.0"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
