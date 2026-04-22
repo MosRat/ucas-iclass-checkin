@@ -11,5 +11,5 @@ use mimalloc::MiMalloc;
 static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
-    iclass_gui_app::run();
+    iclass_gui_app_runtime::run();
 }

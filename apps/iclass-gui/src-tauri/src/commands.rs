@@ -22,6 +22,10 @@ use crate::{
     state::AppState,
 };
 
+static DASHBOARD_REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+static WEEK_SCHEDULE_REQUEST_ID: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(1);
+
 /// Authenticates the user and returns the freshly loaded dashboard.
 #[tauri::command]
 pub(crate) async fn login(
@@ -49,6 +53,7 @@ pub(crate) async fn login(
     info!(
         account = %dashboard.session.account,
         total_ms = dashboard.profile.total_ms,
+        phases = %format_profile_phases(&dashboard.profile),
         "GUI login and dashboard sync finished"
     );
     Ok(dashboard)
@@ -61,10 +66,19 @@ pub(crate) async fn load_dashboard(
     date: Option<String>,
 ) -> Result<DashboardSnapshot, GuiErrorPayload> {
     let date = parse_date(date)?;
-    debug!(%date, "loading dashboard snapshot");
-    load_dashboard_for(&state.core, date)
+    let request_id = DASHBOARD_REQUEST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    debug!(request_id, %date, "loading dashboard snapshot");
+    let snapshot = load_dashboard_for(&state.core, date)
         .await
-        .map_err(map_gui_error)
+        .map_err(map_gui_error)?;
+    info!(
+        request_id,
+        %date,
+        total_ms = snapshot.profile.total_ms,
+        phases = %format_profile_phases(&snapshot.profile),
+        "dashboard snapshot loaded"
+    );
+    Ok(snapshot)
 }
 
 /// Loads weekly schedule cards anchored at the requested date.
@@ -74,10 +88,19 @@ pub(crate) async fn load_week_schedule(
     date: Option<String>,
 ) -> Result<WeeklyScheduleSnapshot, GuiErrorPayload> {
     let date = parse_date(date)?;
-    debug!(%date, "loading weekly schedule snapshot");
-    load_week_schedule_for(&state.core, date)
+    let request_id = WEEK_SCHEDULE_REQUEST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    debug!(request_id, %date, "loading weekly schedule snapshot");
+    let snapshot = load_week_schedule_for(&state.core, date)
         .await
-        .map_err(map_gui_error)
+        .map_err(map_gui_error)?;
+    info!(
+        request_id,
+        %date,
+        total_ms = snapshot.profile.total_ms,
+        phases = %format_profile_phases(&snapshot.profile),
+        "weekly schedule snapshot loaded"
+    );
+    Ok(snapshot)
 }
 
 /// Attempts attendance for a selected schedule row.
@@ -279,4 +302,13 @@ fn map_core_error(error: iclass_core::CoreError) -> GuiErrorPayload {
 
 fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+fn format_profile_phases(profile: &OperationProfile) -> String {
+    profile
+        .phases
+        .iter()
+        .map(|phase| format!("{}={}ms", phase.name, phase.duration_ms))
+        .collect::<Vec<_>>()
+        .join(", ")
 }

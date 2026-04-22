@@ -77,6 +77,12 @@ const automationSettingsSnapshot = reactive<AutomationSettings>({
   autoCheckInMode: "auto"
 });
 const hasShownTrayHint = ref(false);
+let dashboardRequestSerial = 0;
+let weekScheduleRequestSerial = 0;
+let dashboardRefreshInFlight: Promise<void> | null = null;
+let weekScheduleRefreshInFlight: Promise<void> | null = null;
+let dashboardRefreshDate: string | null = null;
+let weekScheduleRefreshDate: string | null = null;
 
 const dialog = reactive({
   open: false,
@@ -173,43 +179,83 @@ function syncDashboardState(next: DashboardSnapshot) {
 }
 
 async function refreshWeekSchedule(date = selectedDate.value) {
-  try {
-    weeklySchedule.value = await loadWeekSchedule(date);
-  } catch {
-    weeklySchedule.value = null;
+  if (weekScheduleRefreshInFlight && weekScheduleRefreshDate === date) {
+    return weekScheduleRefreshInFlight;
   }
+
+  const requestId = ++weekScheduleRequestSerial;
+  weekScheduleRefreshDate = date;
+  weekScheduleRefreshInFlight = (async () => {
+    try {
+      const next = await loadWeekSchedule(date);
+      if (requestId === weekScheduleRequestSerial) {
+        weeklySchedule.value = next;
+      }
+    } catch {
+      if (requestId === weekScheduleRequestSerial) {
+        weeklySchedule.value = null;
+      }
+    } finally {
+      if (weekScheduleRefreshDate === date) {
+        weekScheduleRefreshDate = null;
+        weekScheduleRefreshInFlight = null;
+      }
+    }
+  })();
+
+  return weekScheduleRefreshInFlight;
 }
 
 async function refreshDashboard(date = selectedDate.value) {
-  dashboardLoading.value = true;
-  statusMessage.value = "正在同步课表与个人信息…";
-  statusTone.value = "info";
-  try {
-    const next = await loadDashboard(date);
-    syncDashboardState(next);
-    if (scheduleViewMode.value === "week") {
-      await refreshWeekSchedule(next.schedule_date);
-    }
-    statusMessage.value = `已同步 ${next.schedules.length} 条课表，用时 ${next.profile.total_ms} ms。`;
-    statusTone.value = "success";
-  } catch (error) {
-    const payload = error as GuiErrorPayload;
-    if (isAuthError(payload)) {
-      dashboard.value = null;
-      selectedCard.value = null;
-      statusMessage.value = "自动恢复失败，请重新登录。";
-      statusTone.value = "error";
-      if (payload.code === "InvalidCredentials") {
-        openDialog("登录失败", payload.message);
-      }
-    } else {
-      statusMessage.value = payload.message;
-      statusTone.value = "error";
-      openDialog("同步失败", payload.message, "error", payload.retryable ? "重新同步" : "");
-    }
-  } finally {
-    dashboardLoading.value = false;
+  if (dashboardRefreshInFlight && dashboardRefreshDate === date) {
+    return dashboardRefreshInFlight;
   }
+
+  const requestId = ++dashboardRequestSerial;
+  dashboardRefreshDate = date;
+  dashboardRefreshInFlight = (async () => {
+    dashboardLoading.value = true;
+    statusMessage.value = "正在同步课表与个人信息…";
+    statusTone.value = "info";
+    try {
+      const next = await loadDashboard(date);
+      if (requestId !== dashboardRequestSerial) {
+        return;
+      }
+      syncDashboardState(next);
+      if (scheduleViewMode.value === "week") {
+        await refreshWeekSchedule(next.schedule_date);
+      }
+      statusMessage.value = `已同步 ${next.schedules.length} 条课表，用时 ${next.profile.total_ms} ms。`;
+      statusTone.value = "success";
+    } catch (error) {
+      if (requestId !== dashboardRequestSerial) {
+        return;
+      }
+      const payload = error as GuiErrorPayload;
+      if (isAuthError(payload)) {
+        dashboard.value = null;
+        selectedCard.value = null;
+        statusMessage.value = "自动恢复失败，请重新登录。";
+        statusTone.value = "error";
+        if (payload.code === "InvalidCredentials") {
+          openDialog("登录失败", payload.message);
+        }
+      } else {
+        statusMessage.value = payload.message;
+        statusTone.value = "error";
+        openDialog("同步失败", payload.message, "error", payload.retryable ? "重新同步" : "");
+      }
+    } finally {
+      if (dashboardRefreshDate === date) {
+        dashboardRefreshDate = null;
+        dashboardRefreshInFlight = null;
+      }
+      dashboardLoading.value = false;
+    }
+  })();
+
+  return dashboardRefreshInFlight;
 }
 
 async function bootstrap() {
@@ -461,9 +507,6 @@ function updateSearch(value: string) {
 
 async function handleRefresh() {
   await refreshDashboard(selectedDate.value);
-  if (scheduleViewMode.value === "week") {
-    await refreshWeekSchedule(selectedDate.value);
-  }
 }
 
 onMounted(() => {
