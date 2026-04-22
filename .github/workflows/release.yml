@@ -1,0 +1,177 @@
+name: release
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - "app-v*"
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/iclass-gui/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: install linux gui dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: install frontend dependencies
+        working-directory: apps/iclass-gui
+        run: pnpm install --frozen-lockfile
+
+      - name: build frontend
+        working-directory: apps/iclass-gui
+        run: pnpm build
+
+      - name: run rust tests
+        run: cargo test --workspace
+
+      - name: run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  desktop-release:
+    name: desktop-${{ matrix.platform }}
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
+    needs: verify
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/iclass-gui/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: install linux gui dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: install frontend dependencies
+        working-directory: apps/iclass-gui
+        run: pnpm install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/iclass-gui
+          tagName: app-v__VERSION__
+          releaseName: UCAS iCLASS v__VERSION__
+          releaseBody: See the assets attached to this release for desktop builds.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  android-release:
+    name: android-release
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
+    needs: verify
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/iclass-gui/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: install frontend dependencies
+        working-directory: apps/iclass-gui
+        run: pnpm install --frozen-lockfile
+
+      - name: restore android signing materials
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        working-directory: apps/iclass-gui/src-tauri/gen/android
+        shell: bash
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > iclass-release.jks
+          cat > keystore.properties <<'EOF'
+          storeFile=iclass-release.jks
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          EOF
+
+      - name: build android artifacts
+        working-directory: apps/iclass-gui
+        run: pnpm tauri android build --apk --aab
+
+      - name: upload android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-artifacts
+          path: |
+            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+
+      - name: attach android artifacts to release
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
