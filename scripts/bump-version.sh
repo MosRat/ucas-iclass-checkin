@@ -17,6 +17,25 @@ fail() {
   exit 1
 }
 
+resolve_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "python3"
+    return 0
+  fi
+
+  if command -v python >/dev/null 2>&1; then
+    printf '%s\n' "python"
+    return 0
+  fi
+
+  if command -v py >/dev/null 2>&1; then
+    printf '%s\n' "py -3"
+    return 0
+  fi
+
+  return 1
+}
+
 VERSION=""
 SKIP_PUSH=0
 ALLOW_DIRTY=0
@@ -62,6 +81,7 @@ printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 cd "$REPO_ROOT"
+PYTHON_CMD=$(resolve_python) || fail "python runtime is required but was not found"
 
 TRACKED_FILES="
 Cargo.toml
@@ -116,7 +136,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   exit 0
 fi
 
-python - "$VERSION" <<'PY'
+$PYTHON_CMD - "$VERSION" <<'PY'
 from pathlib import Path
 import json
 import re
