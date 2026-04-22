@@ -1,6 +1,12 @@
 //! Desktop integration helpers for tray, autostart, and window events.
 
-use iclass_gui::{GuiErrorCode, GuiErrorPayload};
+use iclass_gui::GuiErrorPayload;
+
+#[cfg(all(
+    feature = "desktop-autostart",
+    any(target_os = "macos", target_os = "linux", windows)
+))]
+use iclass_gui::GuiErrorCode;
 use tauri::{AppHandle, Emitter};
 use tracing::warn;
 
@@ -126,6 +132,10 @@ pub(crate) fn write_autostart_enabled(
 }
 
 /// Returns whether the autostart backend reported that no existing registration was found.
+#[cfg(all(
+    feature = "desktop-autostart",
+    any(target_os = "macos", target_os = "linux", windows)
+))]
 fn is_missing_autostart_entry_error(message: &str) -> bool {
     message.contains("os error 2")
         || message.contains("The system cannot find the file specified")
@@ -147,6 +157,7 @@ fn hide_main_window(window: &WebviewWindow) {
 }
 
 /// Emits a frontend event hinting that the app was hidden to the tray.
+#[cfg(desktop)]
 fn emit_tray_hidden(app: &AppHandle) {
     let _ = app.emit("desktop://tray-hidden", ());
 }
@@ -229,7 +240,3 @@ pub(crate) fn setup_main_window(window: &WebviewWindow, state: AppState) {
         }
     });
 }
-
-/// Mobile builds do not override close behavior because tray integration is desktop-only.
-#[cfg(not(desktop))]
-pub(crate) fn setup_main_window(_window: &(), _state: AppState) {}

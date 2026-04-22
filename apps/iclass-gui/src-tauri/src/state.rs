@@ -28,6 +28,7 @@ pub(crate) struct AppState {
     pub(crate) desktop_settings_store: DesktopSettingsStore,
     pub(crate) automation_settings_store: AutomationSettingsStore,
     close_to_tray: Arc<AtomicBool>,
+    #[cfg(desktop)]
     allow_exit: Arc<AtomicBool>,
     auto_check_records: Arc<Mutex<HashMap<String, AutoCheckRecord>>>,
 }
@@ -47,6 +48,7 @@ impl AppState {
             desktop_settings_store,
             automation_settings_store,
             close_to_tray: Arc::new(AtomicBool::new(false)),
+            #[cfg(desktop)]
             allow_exit: Arc::new(AtomicBool::new(false)),
             auto_check_records: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -63,11 +65,13 @@ impl AppState {
     }
 
     /// Marks the app as allowed to fully exit.
+    #[cfg(desktop)]
     pub(crate) fn allow_exit(&self) {
         self.allow_exit.store(true, Ordering::Relaxed);
     }
 
     /// Returns whether a full exit has been explicitly requested.
+    #[cfg(desktop)]
     pub(crate) fn exit_allowed(&self) -> bool {
         self.allow_exit.load(Ordering::Relaxed)
     }

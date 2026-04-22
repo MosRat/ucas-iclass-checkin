@@ -26,21 +26,16 @@ pub(crate) struct CheckInRequest {
 }
 
 /// GUI-facing attendance mode representation.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum CheckInModePayload {
     /// Prefer UUID mode and fall back to ID mode.
+    #[default]
     Auto,
     /// Require UUID mode.
     Uuid,
     /// Require ID mode.
     Id,
-}
-
-impl Default for CheckInModePayload {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 impl From<CheckInModePayload> for CheckInMode {
