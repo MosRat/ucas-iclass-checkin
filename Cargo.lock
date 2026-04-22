@@ -1809,6 +1809,7 @@ name = "iclass-gui-app"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "dirs 6.0.0",
  "iclass-api",
  "iclass-core",
  "iclass-domain",
@@ -1821,6 +1822,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-autostart",
  "tauri-plugin-tracing",
+ "thiserror 2.0.18",
  "tracing",
 ]
 

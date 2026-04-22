@@ -14,6 +14,7 @@ desktop-autostart = ["dep:tauri-plugin-autostart"]
 
 [dependencies]
 chrono = { workspace = true, features = ["clock"] }
+dirs.workspace = true
 iclass-api = { version = "0.1.0", path = "../../../crates/iclass-api" }
 iclass-core = { version = "0.1.0", path = "../../../crates/iclass-core" }
 iclass-domain = { version = "0.1.0", path = "../../../crates/iclass-domain" }
@@ -24,6 +25,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tauri = { version = "2.10.1", features = ["config-json5", "tracing"] }
 tauri-plugin-tracing = { version = "0.3.2", features = ["colored"] }
+thiserror.workspace = true
 tracing.workspace = true
 
 [lints]

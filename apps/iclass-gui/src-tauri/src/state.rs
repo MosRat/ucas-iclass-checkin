@@ -9,10 +9,13 @@ use iclass_api::IClassApiClient;
 use iclass_core::IClassCore;
 use iclass_session::{SessionClient, SessionStore};
 
+use crate::settings::DesktopSettingsStore;
+
 /// Application-wide shared state for Tauri commands.
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub(crate) core: IClassCore,
+    pub(crate) desktop_settings_store: DesktopSettingsStore,
     close_to_tray: Arc<AtomicBool>,
     allow_exit: Arc<AtomicBool>,
 }
@@ -26,6 +29,7 @@ impl AppState {
         let core = IClassCore::new(session_client);
         Self {
             core,
+            desktop_settings_store: DesktopSettingsStore::default(),
             close_to_tray: Arc::new(AtomicBool::new(false)),
             allow_exit: Arc::new(AtomicBool::new(false)),
         }

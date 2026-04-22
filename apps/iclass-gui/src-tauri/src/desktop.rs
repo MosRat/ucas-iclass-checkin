@@ -2,6 +2,7 @@
 
 use iclass_gui::{GuiErrorCode, GuiErrorPayload};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
+use tracing::warn;
 
 #[cfg(feature = "desktop-tray")]
 use tauri::{
@@ -15,7 +16,33 @@ use tauri::{
 ))]
 use tauri_plugin_autostart::ManagerExt;
 
+use crate::settings::PersistedDesktopSettings;
 use crate::state::AppState;
+
+/// Loads persisted desktop settings from disk, falling back to defaults when the store is unreadable.
+pub(crate) fn load_persisted_settings(state: &AppState) -> PersistedDesktopSettings {
+    match state.desktop_settings_store.load() {
+        Ok(settings) => settings,
+        Err(error) => {
+            warn!(
+                store = %state.desktop_settings_store.path().display(),
+                error = %error,
+                "failed to load persisted desktop settings; using defaults"
+            );
+            PersistedDesktopSettings::default()
+        }
+    }
+}
+
+/// Restores persisted desktop preferences into runtime state and platform integrations.
+pub(crate) fn restore_desktop_settings(app: &AppHandle, state: &AppState) {
+    let persisted = load_persisted_settings(state);
+    state.set_close_to_tray(cfg!(feature = "desktop-tray") && persisted.close_to_tray);
+
+    if let Err(error) = write_autostart_enabled(app, persisted.autostart_enabled) {
+        warn!(error = %error.message, "failed to restore autostart preference");
+    }
+}
 
 /// Reads the current autostart state from the platform integration plugin.
 pub(crate) fn read_autostart_enabled(app: &AppHandle) -> Result<bool, GuiErrorPayload> {

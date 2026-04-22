@@ -10,11 +10,12 @@ use tauri::{AppHandle, State};
 use tracing::{debug, info};
 
 use crate::{
-    desktop::{read_autostart_enabled, write_autostart_enabled},
+    desktop::{load_persisted_settings, read_autostart_enabled, write_autostart_enabled},
     models::{
         CheckInModePayload, CheckInRequest, DesktopSettingsPayload, LoginRequest,
         UpdateDesktopSettingsRequest,
     },
+    settings::PersistedDesktopSettings,
     state::AppState,
 };
 
@@ -99,6 +100,9 @@ pub(crate) async fn get_desktop_settings(
     state: State<'_, AppState>,
 ) -> Result<DesktopSettingsPayload, GuiErrorPayload> {
     debug!("reading desktop integration settings");
+    let persisted = load_persisted_settings(&state);
+    state.set_close_to_tray(cfg!(feature = "desktop-tray") && persisted.close_to_tray);
+
     Ok(DesktopSettingsPayload {
         autostart_enabled: read_autostart_enabled(&app)?,
         close_to_tray: state.close_to_tray(),
@@ -114,13 +118,22 @@ pub(crate) async fn update_desktop_settings(
     state: State<'_, AppState>,
     request: UpdateDesktopSettingsRequest,
 ) -> Result<DesktopSettingsPayload, GuiErrorPayload> {
+    let close_to_tray = cfg!(feature = "desktop-tray") && request.close_to_tray;
+    let autostart_enabled = cfg!(feature = "desktop-autostart") && request.autostart_enabled;
+
     info!(
-        autostart_enabled = request.autostart_enabled,
-        close_to_tray = request.close_to_tray,
-        "updating desktop integration settings"
+        autostart_enabled,
+        close_to_tray, "updating desktop integration settings"
     );
-    state.set_close_to_tray(cfg!(feature = "desktop-tray") && request.close_to_tray);
-    write_autostart_enabled(&app, request.autostart_enabled)?;
+    write_autostart_enabled(&app, autostart_enabled)?;
+    state.set_close_to_tray(close_to_tray);
+    state
+        .desktop_settings_store
+        .save(&PersistedDesktopSettings {
+            autostart_enabled,
+            close_to_tray,
+        })
+        .map_err(|error| GuiErrorPayload::new(GuiErrorCode::Storage, error.to_string(), false))?;
 
     Ok(DesktopSettingsPayload {
         autostart_enabled: read_autostart_enabled(&app)?,

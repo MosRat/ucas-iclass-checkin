@@ -3,6 +3,7 @@
 mod commands;
 mod desktop;
 mod models;
+mod settings;
 mod state;
 mod tracing_setup;
 
@@ -29,6 +30,7 @@ pub fn run() {
         .setup({
             let state = state.clone();
             move |app| {
+                desktop::restore_desktop_settings(app.handle(), &state);
                 desktop::setup_tray(app.handle(), &state)?;
 
                 if let Some(window) = app.get_webview_window("main") {
