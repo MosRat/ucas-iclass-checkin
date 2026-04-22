@@ -17,20 +17,20 @@ const pendingTotal = computed(() =>
 
 <template>
   <section class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-    <div class="glass-panel p-5">
-      <div class="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+    <div class="glass-panel p-3.5 sm:p-5">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <p class="text-sm font-medium text-accent-700">当前登录</p>
-          <h2 class="mt-2 text-2xl font-semibold text-ink-950">
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-accent-700">当前登录</p>
+          <h2 class="mt-2 text-lg font-semibold text-ink-950 sm:text-2xl">
             {{ props.dashboard.session.real_name }}
           </h2>
           <p class="mt-1 text-sm text-ink-500">{{ props.dashboard.session.account }}</p>
-          <p class="mt-2 text-sm text-ink-500">
+          <p class="mt-2 text-xs text-ink-500 sm:text-sm">
             上次同步
             {{ new Date(props.dashboard.generated_at).toLocaleString("zh-CN", { hour12: false }) }}
           </p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-3">
+        <div class="grid grid-cols-3 gap-2 sm:gap-3">
           <div class="metric-card">
             <p class="metric-label">今日课表</p>
             <p class="metric-value">{{ props.dashboard.schedules.length }}</p>
@@ -49,16 +49,16 @@ const pendingTotal = computed(() =>
       </div>
     </div>
 
-    <div class="glass-panel p-5">
+    <div class="glass-panel p-3.5 sm:p-5">
       <p class="text-sm font-medium text-ink-500">当前学期</p>
       <template v-if="currentSemester">
-        <h3 class="mt-2 text-lg font-semibold text-ink-900">
+        <h3 class="mt-2 text-base font-semibold text-ink-900 sm:text-lg">
           {{ currentSemester.name }}
         </h3>
         <p class="mt-2 text-sm text-ink-500">
           {{ currentSemester.begin_date }} - {{ currentSemester.end_date }}
         </p>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="mt-3 grid gap-2 sm:mt-4 sm:gap-3 sm:grid-cols-2">
           <div class="metric-card">
             <p class="metric-label">学期总数</p>
             <p class="text-lg font-semibold text-ink-900">{{ props.dashboard.semesters.length }}</p>

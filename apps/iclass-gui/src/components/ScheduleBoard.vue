@@ -110,32 +110,32 @@ function renderCard(card: ScheduleCard) {
 </script>
 
 <template>
-  <section class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+  <section class="grid gap-4 sm:gap-5 xl:grid-cols-[1.2fr_0.8fr]">
     <div class="glass-panel overflow-hidden p-0">
-      <div class="flex flex-col gap-4 border-b border-slate-200/70 px-5 py-5">
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div class="flex flex-col gap-3 border-b border-slate-200/70 px-3.5 py-3.5 sm:px-5 sm:py-5">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h3 class="text-lg font-semibold text-ink-950">课表工作台</h3>
-            <p class="mt-1 text-sm text-ink-500">支持按日期查看、周视图筛选，以及在开放时间内直接打卡。</p>
+            <p class="mt-1 text-sm leading-6 text-ink-500">按日期查看、切换周视图，并在开放时间内直接打卡。</p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
+          <div class="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
             <input
               :value="selectedDate"
-              class="field-input min-w-[10rem] bg-white/90"
+              class="field-input min-w-[10rem] bg-white/90 py-2.5"
               type="date"
               @change="emit('changeDate', ($event.target as HTMLInputElement).value)"
             />
-            <button class="secondary-btn" :disabled="loading" type="button" @click="emit('refresh')">
+            <button class="secondary-btn justify-center py-2.5" :disabled="loading" type="button" @click="emit('refresh')">
               {{ loading ? "同步中..." : "刷新" }}
             </button>
-            <button class="secondary-btn" type="button" @click="emit('logout')">退出登录</button>
+            <button class="secondary-btn justify-center py-2.5" type="button" @click="emit('logout')">退出登录</button>
           </div>
         </div>
 
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="inline-flex rounded-3xl border border-white/70 bg-white/90 p-1 shadow-[0_8px_20px_rgba(27,46,89,0.08)]">
+          <div class="inline-flex self-start rounded-3xl border border-white/70 bg-white/90 p-1 shadow-[0_8px_20px_rgba(27,46,89,0.08)]">
             <button
-              class="rounded-[1.25rem] px-4 py-2 text-sm font-semibold transition"
+              class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
               :class="props.viewMode === 'day' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
               type="button"
               @click="emit('updateViewMode', 'day')"
@@ -143,7 +143,7 @@ function renderCard(card: ScheduleCard) {
               日视图
             </button>
             <button
-              class="rounded-[1.25rem] px-4 py-2 text-sm font-semibold transition"
+              class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
               :class="props.viewMode === 'week' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
               type="button"
               @click="emit('updateViewMode', 'week')"
@@ -155,7 +155,7 @@ function renderCard(card: ScheduleCard) {
           <div class="flex flex-1 items-center justify-end">
             <input
               :value="props.search"
-              class="field-input w-full max-w-md"
+              class="field-input w-full max-w-md py-2.5"
               placeholder="搜索课程、教师、地点或课程编号"
               type="search"
               @input="emit('updateSearch', ($event.target as HTMLInputElement).value)"
@@ -164,7 +164,7 @@ function renderCard(card: ScheduleCard) {
         </div>
       </div>
 
-      <div v-if="visibleSchedules.length > 0" class="space-y-4 p-5">
+      <div v-if="visibleSchedules.length > 0" class="space-y-3 p-3.5 sm:space-y-4 sm:p-5">
         <template v-if="props.viewMode === 'week'">
           <section v-for="group in groupedSchedules" :key="group.date" class="space-y-3">
             <div class="flex items-center justify-between px-1">
@@ -175,7 +175,7 @@ function renderCard(card: ScheduleCard) {
             <article
               v-for="card in group.cards"
               :key="card.schedule.schedule_id"
-              class="relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
+              class="relative overflow-hidden rounded-[1.4rem] border border-white/80 bg-white/88 p-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)] sm:rounded-[1.75rem] sm:p-5"
               :class="{
                 'ring-2 ring-accent-300 shadow-[0_18px_34px_rgba(30,91,214,0.14)]': props.selectedScheduleId === card.schedule.schedule_id,
                 'p-4': props.compact
@@ -185,17 +185,17 @@ function renderCard(card: ScheduleCard) {
               <div class="ml-3 flex flex-col" :class="props.compact ? 'gap-3' : 'gap-4'">
                 <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <h4 class="text-lg font-semibold text-ink-950">{{ card.schedule.course_name }}</h4>
-                <p class="mt-1 text-sm text-ink-500">
-                  {{ card.schedule.teacher_name || "教师未标注" }} ·
-                  {{ card.schedule.classroom_name || "地点未标注" }}
-                </p>
-                <p v-if="card.schedule.lesson_units > 1" class="mt-2 text-xs font-medium text-accent-700">
-                  本堂课共 {{ card.schedule.lesson_units }} 课时
-                </p>
-              </div>
+                    <h4 class="text-base font-semibold leading-6 text-ink-950 sm:text-lg">{{ card.schedule.course_name }}</h4>
+                    <p class="mt-1 text-sm text-ink-500">
+                      {{ card.schedule.teacher_name || "教师未标注" }} ·
+                      {{ card.schedule.classroom_name || "地点未标注" }}
+                    </p>
+                    <p v-if="card.schedule.lesson_units > 1" class="mt-2 text-xs font-medium text-accent-700">
+                      本堂课共 {{ card.schedule.lesson_units }} 课时
+                    </p>
+                  </div>
                   <span
-                    class="inline-flex rounded-full px-3 py-1 text-xs font-semibold"
+                    class="inline-flex self-start rounded-full px-3 py-1 text-xs font-semibold"
                     :class="{
                       'bg-emerald-100 text-emerald-700': card.availability === 'Open',
                       'bg-amber-100 text-amber-700': card.availability === 'NotOpenYet',
@@ -206,20 +206,20 @@ function renderCard(card: ScheduleCard) {
                   </span>
                 </div>
 
-                <div class="grid text-sm text-ink-600 sm:grid-cols-3" :class="props.compact ? 'gap-2' : 'gap-3'">
-                  <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                <div class="grid grid-cols-2 text-sm text-ink-600 sm:grid-cols-3" :class="props.compact ? 'gap-2' : 'gap-2.5 sm:gap-3'">
+                  <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
                     <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开始</p>
                     <p class="mt-2 font-medium text-ink-800">
                       {{ new Date(card.schedule.begins_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                     </p>
                   </div>
-                  <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
                     <p class="text-xs uppercase tracking-[0.2em] text-ink-400">结束</p>
                     <p class="mt-2 font-medium text-ink-800">
                       {{ new Date(card.schedule.ends_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                     </p>
                   </div>
-                  <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div class="col-span-2 rounded-2xl bg-slate-50 px-3.5 py-3 sm:col-span-1 sm:px-4">
                     <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开放打卡</p>
                     <p class="mt-2 font-medium text-ink-800">
                       {{ new Date(card.check_in_opens_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
@@ -227,16 +227,16 @@ function renderCard(card: ScheduleCard) {
                   </div>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <p class="text-sm text-ink-500">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p class="text-sm leading-6 text-ink-500">
                     课程编号 {{ card.schedule.schedule_id }}
                     <span v-if="card.schedule.schedule_uuid"> · UUID 模式可用</span>
                     <span class="block text-xs text-ink-400">{{ renderCard(card).hint }}</span>
                   </p>
-                  <div class="flex flex-wrap gap-2">
-                    <button class="secondary-btn" type="button" @click="emit('select', card)">详情</button>
+                  <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                    <button class="secondary-btn justify-center py-2.5" type="button" @click="emit('select', card)">详情</button>
                     <button
-                      class="primary-btn"
+                      class="primary-btn justify-center py-2.5"
                       :disabled="loading || !renderCard(card).canCheckIn"
                       type="button"
                       @click="emit('checkIn', card)"
@@ -254,7 +254,7 @@ function renderCard(card: ScheduleCard) {
           <article
             v-for="card in visibleSchedules"
             :key="card.schedule.schedule_id"
-            class="relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)]"
+            class="relative overflow-hidden rounded-[1.4rem] border border-white/80 bg-white/88 p-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)] sm:rounded-[1.75rem] sm:p-5"
             :class="{
               'ring-2 ring-accent-300 shadow-[0_18px_34px_rgba(30,91,214,0.14)]': props.selectedScheduleId === card.schedule.schedule_id,
               'p-4': props.compact
@@ -264,7 +264,7 @@ function renderCard(card: ScheduleCard) {
             <div class="ml-3 flex flex-col" :class="props.compact ? 'gap-3' : 'gap-4'">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h4 class="text-lg font-semibold text-ink-950">{{ card.schedule.course_name }}</h4>
+                  <h4 class="text-base font-semibold leading-6 text-ink-950 sm:text-lg">{{ card.schedule.course_name }}</h4>
                   <p class="mt-1 text-sm text-ink-500">
                     {{ card.schedule.teacher_name || "教师未标注" }} ·
                     {{ card.schedule.classroom_name || "地点未标注" }}
@@ -274,7 +274,7 @@ function renderCard(card: ScheduleCard) {
                   </p>
                 </div>
                 <span
-                  class="inline-flex rounded-full px-3 py-1 text-xs font-semibold"
+                  class="inline-flex self-start rounded-full px-3 py-1 text-xs font-semibold"
                   :class="{
                     'bg-emerald-100 text-emerald-700': card.availability === 'Open',
                     'bg-amber-100 text-amber-700': card.availability === 'NotOpenYet',
@@ -285,20 +285,20 @@ function renderCard(card: ScheduleCard) {
                 </span>
               </div>
 
-              <div class="grid text-sm text-ink-600 sm:grid-cols-3" :class="props.compact ? 'gap-2' : 'gap-3'">
-                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+              <div class="grid grid-cols-2 text-sm text-ink-600 sm:grid-cols-3" :class="props.compact ? 'gap-2' : 'gap-2.5 sm:gap-3'">
+                <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
                   <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开始</p>
                   <p class="mt-2 font-medium text-ink-800">
                     {{ new Date(card.schedule.begins_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                   </p>
                 </div>
-                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
                   <p class="text-xs uppercase tracking-[0.2em] text-ink-400">结束</p>
                   <p class="mt-2 font-medium text-ink-800">
                     {{ new Date(card.schedule.ends_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                   </p>
                 </div>
-                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                <div class="col-span-2 rounded-2xl bg-slate-50 px-3.5 py-3 sm:col-span-1 sm:px-4">
                   <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开放打卡</p>
                   <p class="mt-2 font-medium text-ink-800">
                     {{ new Date(card.check_in_opens_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
@@ -306,16 +306,16 @@ function renderCard(card: ScheduleCard) {
                 </div>
               </div>
 
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <p class="text-sm text-ink-500">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-sm leading-6 text-ink-500">
                   课程编号 {{ card.schedule.schedule_id }}
                   <span v-if="card.schedule.schedule_uuid"> · UUID 模式可用</span>
                   <span class="block text-xs text-ink-400">{{ renderCard(card).hint }}</span>
                 </p>
-                <div class="flex flex-wrap gap-2">
-                  <button class="secondary-btn" type="button" @click="emit('select', card)">详情</button>
+                <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                  <button class="secondary-btn justify-center py-2.5" type="button" @click="emit('select', card)">详情</button>
                   <button
-                    class="primary-btn"
+                    class="primary-btn justify-center py-2.5"
                     :disabled="loading || !renderCard(card).canCheckIn"
                     type="button"
                     @click="emit('checkIn', card)"
@@ -329,7 +329,7 @@ function renderCard(card: ScheduleCard) {
         </template>
       </div>
 
-      <div v-else class="p-6">
+      <div v-else class="p-4 sm:p-6">
         <div class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-10 text-center">
           <p class="text-lg font-semibold text-ink-800">
             {{ props.search ? "没有匹配的课程" : props.viewMode === "week" ? "本周没有课表" : "当前日期没有课表" }}
@@ -341,10 +341,10 @@ function renderCard(card: ScheduleCard) {
       </div>
     </div>
 
-    <aside class="space-y-5">
-      <div class="glass-panel p-5">
+    <aside class="space-y-4 xl:space-y-5">
+      <div class="glass-panel p-3.5 sm:p-5">
         <h3 class="text-lg font-semibold text-ink-950">课程摘要</h3>
-        <div class="mt-4 space-y-3">
+        <div class="mt-3 grid gap-2.5 sm:mt-4 sm:gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <article
             v-for="course in courseDigest"
             :key="course.id"
@@ -357,9 +357,9 @@ function renderCard(card: ScheduleCard) {
         </div>
       </div>
 
-      <div class="glass-panel p-5">
+      <div class="glass-panel p-3.5 sm:p-5">
         <h3 class="text-lg font-semibold text-ink-950">使用提示</h3>
-        <ul class="mt-4 space-y-3 text-sm leading-6 text-ink-600">
+        <ul class="mt-3 space-y-2.5 text-sm leading-6 text-ink-600 sm:mt-4 sm:space-y-3">
           <li>托盘驻留开启后，关闭窗口不会退出进程，可从系统托盘再次唤起。</li>
           <li>周视图支持按课程名、教师、地点和课程编号快速筛选。</li>
           <li>打卡按钮会在课程开始前 30 分钟自动变为可用。</li>

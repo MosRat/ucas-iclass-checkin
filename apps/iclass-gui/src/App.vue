@@ -86,7 +86,7 @@ const topStatus = computed(() => {
   if (!dashboard.value) {
     return {
       title: "等待登录",
-      message: "输入账号密码后即可同步个人信息、课表和打卡能力。",
+      message: "输入账号密码即可同步课表、个人信息和打卡能力。",
       tone: statusTone.value
     };
   }
@@ -411,15 +411,18 @@ onBeforeUnmount(() => {
         @settings="openSettings"
       />
 
-      <main class="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6 md:pb-8">
-        <div class="mx-auto max-w-7xl space-y-5">
+      <main class="min-h-0 flex-1 overflow-y-auto px-3 pb-5 pt-3 sm:px-4 md:px-6 md:pb-8">
+        <div class="mx-auto max-w-7xl space-y-4 sm:space-y-5">
           <section
-            class="glass-panel relative overflow-hidden px-5 py-5 md:px-6"
-            :class="{
-              'border-accent-200/70': topStatus.tone === 'info',
-              'border-emerald-200/70': topStatus.tone === 'success',
-              'border-rose-200/80': topStatus.tone === 'error'
-            }"
+            class="glass-panel relative overflow-hidden"
+            :class="[
+              showLogin ? 'px-3 py-3 sm:px-5 sm:py-4 md:px-6' : 'px-3.5 py-3.5 sm:px-5 sm:py-4 md:px-6',
+              {
+                'border-accent-200/70': topStatus.tone === 'info',
+                'border-emerald-200/70': topStatus.tone === 'success',
+                'border-rose-200/80': topStatus.tone === 'error'
+              }
+            ]"
           >
             <div
               class="pointer-events-none absolute inset-y-0 right-0 w-52 opacity-80"
@@ -429,31 +432,41 @@ onBeforeUnmount(() => {
                 'bg-[radial-gradient(circle_at_center,_rgba(244,63,94,0.16),_rgba(255,255,255,0))]': topStatus.tone === 'error'
               }"
             ></div>
-            <div class="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div class="flex min-w-0 items-start gap-4">
+            <div
+              class="relative flex flex-col"
+              :class="showLogin ? 'gap-2 sm:gap-3 md:flex-row md:items-center md:justify-between' : 'gap-3 md:flex-row md:items-center md:justify-between'"
+            >
+              <div class="flex min-w-0 items-start gap-2.5 sm:gap-3">
                 <div
-                  class="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-3xl text-sm font-semibold"
-                  :class="{
-                    'bg-accent-100 text-accent-700': topStatus.tone === 'info',
-                    'bg-emerald-100 text-emerald-700': topStatus.tone === 'success',
-                    'bg-rose-100 text-rose-700': topStatus.tone === 'error'
-                  }"
+                  class="flex shrink-0 items-center justify-center rounded-3xl text-sm font-semibold"
+                  :class="[
+                    showLogin ? 'mt-0.5 h-8 w-8 sm:mt-1 sm:h-10 sm:w-10' : 'mt-0.5 h-9 w-9 sm:mt-1 sm:h-11 sm:w-11',
+                    {
+                      'bg-accent-100 text-accent-700': topStatus.tone === 'info',
+                      'bg-emerald-100 text-emerald-700': topStatus.tone === 'success',
+                      'bg-rose-100 text-rose-700': topStatus.tone === 'error'
+                    }
+                  ]"
                 >
                   {{ topStatus.tone === "success" ? "✓" : topStatus.tone === "error" ? "!" : "…" }}
                 </div>
                 <div class="min-w-0">
-                  <h2 class="text-lg font-semibold text-ink-950">{{ topStatus.title }}</h2>
-                  <p class="mt-1 text-sm leading-6 text-ink-600">{{ topStatus.message }}</p>
+                  <h2 class="font-semibold text-ink-950" :class="showLogin ? 'text-[14px] sm:text-lg' : 'text-[15px] sm:text-lg'">
+                    {{ topStatus.title }}
+                  </h2>
+                  <p class="mt-1 text-ink-600" :class="showLogin ? 'text-sm leading-6' : 'text-sm leading-6 sm:text-sm'">
+                    {{ showLogin ? statusMessage : topStatus.message }}
+                  </p>
                 </div>
               </div>
-              <div class="flex flex-wrap items-center gap-2 text-sm text-ink-500">
-                <span class="rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)]">
+              <div class="flex flex-wrap items-center gap-2 text-sm text-ink-500" :class="showLogin ? 'hidden sm:flex' : ''">
+                <span class="hidden rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)] sm:inline-flex">
                   {{ scheduleViewMode === "week" ? "周视图" : "日视图" }}
                 </span>
-                <span class="rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)]">
+                <span class="hidden rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)] sm:inline-flex">
                   {{ dashboard ? `已同步 ${dashboard.schedules.length} 个时段` : "等待同步" }}
                 </span>
-                <span class="rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)]">{{ statusMessage }}</span>
+                <span class="max-w-full rounded-full bg-white/82 px-2.5 py-1.5 text-xs shadow-[0_8px_20px_rgba(26,44,81,0.06)] sm:px-3 sm:text-sm">{{ statusMessage }}</span>
               </div>
             </div>
           </section>
