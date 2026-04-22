@@ -106,7 +106,7 @@ jobs:
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/iclass-release.jks
           cat > keystore.properties <<'EOF'
-          storeFile=iclass-release.jks
+          storeFile=${PWD}/app/iclass-release.jks
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
           password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           EOF
