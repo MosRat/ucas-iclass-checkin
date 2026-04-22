@@ -22,14 +22,16 @@ pub(crate) struct AppState {
 
 impl AppState {
     /// Creates the shared GUI application state.
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(
+        session_store: SessionStore,
+        desktop_settings_store: DesktopSettingsStore,
+    ) -> Self {
         let api = IClassApiClient::default();
-        let store = SessionStore::default();
-        let session_client = SessionClient::new(api, store);
+        let session_client = SessionClient::new(api, session_store);
         let core = IClassCore::new(session_client);
         Self {
             core,
-            desktop_settings_store: DesktopSettingsStore::default(),
+            desktop_settings_store,
             close_to_tray: Arc::new(AtomicBool::new(false)),
             allow_exit: Arc::new(AtomicBool::new(false)),
         }

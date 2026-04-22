@@ -1,10 +1,13 @@
 //! Desktop integration helpers for tray, autostart, and window events.
 
 use iclass_gui::{GuiErrorCode, GuiErrorPayload};
-use tauri::{AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
+use tauri::{AppHandle, Emitter};
 use tracing::warn;
 
-#[cfg(feature = "desktop-tray")]
+#[cfg(desktop)]
+use tauri::{Manager, WebviewWindow, WindowEvent};
+
+#[cfg(all(desktop, feature = "desktop-tray"))]
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -130,6 +133,7 @@ fn is_missing_autostart_entry_error(message: &str) -> bool {
 }
 
 /// Shows the main window and restores focus from the system tray.
+#[cfg(desktop)]
 fn show_main_window(window: &WebviewWindow) {
     let _ = window.show();
     let _ = window.unminimize();
@@ -137,6 +141,7 @@ fn show_main_window(window: &WebviewWindow) {
 }
 
 /// Hides the main window and keeps the process alive in the tray.
+#[cfg(desktop)]
 fn hide_main_window(window: &WebviewWindow) {
     let _ = window.hide();
 }
@@ -147,7 +152,7 @@ fn emit_tray_hidden(app: &AppHandle) {
 }
 
 /// Builds the tray icon and its basic menu actions.
-#[cfg(feature = "desktop-tray")]
+#[cfg(all(desktop, feature = "desktop-tray"))]
 pub(crate) fn setup_tray(app: &AppHandle, state: &AppState) -> tauri::Result<()> {
     let show_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
     let hide_item = MenuItem::with_id(app, "hide", "隐藏到托盘", true, None::<&str>)?;
@@ -202,12 +207,13 @@ pub(crate) fn setup_tray(app: &AppHandle, state: &AppState) -> tauri::Result<()>
 }
 
 /// Builds the tray icon and its menu actions when tray support is disabled.
-#[cfg(not(feature = "desktop-tray"))]
+#[cfg(not(all(desktop, feature = "desktop-tray")))]
 pub(crate) fn setup_tray(_app: &AppHandle, _state: &AppState) -> tauri::Result<()> {
     Ok(())
 }
 
 /// Hooks window events so close requests can minimize to the tray instead of terminating.
+#[cfg(desktop)]
 pub(crate) fn setup_main_window(window: &WebviewWindow, state: AppState) {
     let app = window.app_handle().clone();
     window.on_window_event(move |event| {
@@ -223,3 +229,7 @@ pub(crate) fn setup_main_window(window: &WebviewWindow, state: AppState) {
         }
     });
 }
+
+/// Mobile builds do not override close behavior because tray integration is desktop-only.
+#[cfg(not(desktop))]
+pub(crate) fn setup_main_window(_window: &(), _state: AppState) {}
