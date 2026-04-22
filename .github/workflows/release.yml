@@ -10,18 +10,16 @@ jobs:
   desktop-release:
     name: desktop-${{ matrix.platform }}
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: ubuntu-22.04
-            args: ""
+            artifact_name: desktop-linux-bundles
           - platform: windows-latest
-            args: ""
+            artifact_name: desktop-windows-bundles
           - platform: macos-latest
-            args: ""
+            artifact_name: desktop-macos-bundles
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -50,23 +48,24 @@ jobs:
         working-directory: apps/iclass-gui
         run: pnpm install --frozen-lockfile
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: build desktop bundle
+        working-directory: apps/iclass-gui
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
+          RUSTFLAGS: ""
+        run: pnpm tauri build
+
+      - name: upload desktop bundles
+        uses: actions/upload-artifact@v4
         with:
-          projectPath: apps/iclass-gui
-          tagName: app-v__VERSION__
-          releaseName: UCAS iCLASS v__VERSION__
-          releaseBody: See the assets attached to this release for desktop builds.
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: ${{ matrix.artifact_name }}
+          path: target/release/bundle/**/*
+          if-no-files-found: error
 
   android-release:
     name: android-release
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
-    permissions:
-      contents: write
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -123,11 +122,48 @@ jobs:
           path: |
             apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+          if-no-files-found: error
 
-      - name: attach android artifacts to release
-        if: startsWith(github.ref, 'refs/tags/app-v')
+  publish-release:
+    name: publish-release
+    if: startsWith(github.ref, 'refs/tags/app-v')
+    needs:
+      - desktop-release
+      - android-release
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    steps:
+      - name: download desktop linux bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-linux-bundles
+          path: release-assets/linux
+
+      - name: download desktop windows bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-windows-bundles
+          path: release-assets/windows
+
+      - name: download desktop macos bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-macos-bundles
+          path: release-assets/macos
+
+      - name: download android bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release-artifacts
+          path: release-assets/android
+
+      - name: attach artifacts to release
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
-            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+            release-assets/linux/**/*
+            release-assets/windows/**/*
+            release-assets/macos/**/*
+            release-assets/android/**/*
