@@ -1,5 +1,6 @@
 /target
 /.env
 /.env.*
+!/.env.example
 *.local.toml
 docs/api/UCAS-iCLASS.agent-bundle.*

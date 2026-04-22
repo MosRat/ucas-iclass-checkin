@@ -43,6 +43,41 @@ UCAS_ICLASS_SESSION_PATH=F:\\WorkSpace\\Rust\\ucas-iclass-chechin\\.session.json
 RUST_LOG=info
 ```
 
+仓库中应该提交 `.env.example`，但不要提交真实 `.env`、本地 session 文件、签名材料或任何个人凭证。
+
+## 提交边界
+
+推荐提交到 GitHub 的内容：
+
+- Rust workspace 源码、测试、文档和 `Cargo.lock`
+- `apps/iclass-gui/src` 与 `src-tauri/src` 下的手写源码
+- Tauri capability/schema 文件
+- `src-tauri/gen/android` 下稳定的 Android 工程骨架与手写原生代码
+- Git hooks、CI/workflows、示例配置和图标资源
+
+不应提交的内容：
+
+- `target/`、`dist/`、`node_modules/`
+- `apps/iclass-gui/src/**/*.js` 这类由 TypeScript 源码旁路生成的编译副产物
+- `.env`、真实账号密码、session JSON、日志文件
+- Android `keystore.properties`、`local.properties`、keystore 文件与构建输出
+- 临时调试文件、模拟器截图、平台本地缓存
+
+目前仓库已经按这个边界做了清理，公开仓库时可以直接沿用。
+
+## GitHub Actions
+
+- `.github/workflows/ci.yml`
+  负责 PR / `main` 分支的构建校验，执行前端构建、`cargo test --workspace` 和 `clippy`。
+- `.github/workflows/release.yml`
+  负责手动触发或 `app-v*` tag 的桌面端与 Android 构建发布。
+
+Android release 若需要签名，请在 GitHub Secrets 中提供：
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEYSTORE_PASSWORD`
+
 ## CLI 用法
 
 登录并保存 session：

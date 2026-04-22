@@ -2,59 +2,14 @@ name: release
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
   push:
-    branches:
-      - main
     tags:
       - "app-v*"
 
 jobs:
-  verify:
-    name: verify
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: apps/iclass-gui/pnpm-lock.yaml
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: install linux gui dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: install frontend dependencies
-        working-directory: apps/iclass-gui
-        run: pnpm install --frozen-lockfile
-
-      - name: build frontend
-        working-directory: apps/iclass-gui
-        run: pnpm build
-
-      - name: run rust tests
-        run: cargo test --workspace
-
-      - name: run clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
   desktop-release:
     name: desktop-${{ matrix.platform }}
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
-    needs: verify
     permissions:
       contents: write
     strategy:
@@ -110,7 +65,6 @@ jobs:
   android-release:
     name: android-release
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
-    needs: verify
     permissions:
       contents: write
     runs-on: ubuntu-22.04
