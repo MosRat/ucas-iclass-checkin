@@ -19,6 +19,16 @@ export interface GuiErrorPayload {
   retryable: boolean;
 }
 
+export interface ProfilePhase {
+  name: string;
+  duration_ms: number;
+}
+
+export interface OperationProfile {
+  total_ms: number;
+  phases: ProfilePhase[];
+}
+
 export interface SessionSummary {
   account: string;
   real_name: string;
@@ -74,6 +84,7 @@ export interface DashboardSnapshot {
   courses: Course[];
   schedule_date: string;
   schedules: ScheduleCard[];
+  profile: OperationProfile;
 }
 
 export interface WeeklyScheduleSnapshot {
@@ -81,6 +92,7 @@ export interface WeeklyScheduleSnapshot {
   week_start: string;
   week_end: string;
   schedules: ScheduleCard[];
+  profile: OperationProfile;
 }
 
 export interface CheckInReceipt {
@@ -93,6 +105,7 @@ export interface CheckInReceipt {
 export interface CheckInViewModel {
   schedule: ScheduleEntry;
   receipt: CheckInReceipt;
+  profile: OperationProfile;
 }
 
 export interface LoginRequest {
@@ -106,9 +119,20 @@ export interface CheckInRequest {
   mode?: "auto" | "uuid" | "id";
 }
 
+export interface CustomCheckInRequest {
+  identifier: string;
+  mode: "uuid" | "id";
+}
+
 export interface DesktopSettings {
   autostartEnabled: boolean;
   closeToTray: boolean;
   autostartAvailable: boolean;
   closeToTrayAvailable: boolean;
+}
+
+export interface AutomationSettings {
+  autoCheckInEnabled: boolean;
+  autoCheckIntervalSeconds: number;
+  autoCheckInMode: "auto" | "uuid" | "id";
 }

@@ -8,6 +8,7 @@ use iclass_domain::{
 };
 use iclass_session::{SessionClient, SessionError, SessionErrorKind};
 use thiserror::Error;
+use tracing::{debug, info};
 
 pub use iclass_domain::{CheckInMethod, CheckInReceipt, Course};
 
@@ -289,6 +290,44 @@ impl IClassCore {
         let now = Local::now().naive_local();
         self.check_in_at(now, mode, Local::now().timestamp()).await
     }
+
+    /// Attempts attendance directly against a caller-supplied schedule ID or UUID.
+    ///
+    /// This bypasses schedule-window validation and is intended for advanced/manual recovery flows.
+    pub async fn check_in_with_identifier(
+        &self,
+        identifier: &str,
+        mode: CheckInMode,
+        timestamp: i64,
+    ) -> Result<CheckInAttempt, CoreError> {
+        let now = Local::now().naive_local();
+        let receipt = match mode {
+            CheckInMode::Auto | CheckInMode::ByUuid => {
+                debug!(identifier, ?mode, "attempting custom uuid check-in");
+                self.session_client
+                    .check_in_by_uuid(identifier, timestamp)
+                    .await?
+            }
+            CheckInMode::ById => {
+                debug!(identifier, ?mode, "attempting custom id check-in");
+                self.session_client
+                    .check_in_by_id(identifier, timestamp)
+                    .await?
+            }
+        };
+
+        info!(
+            identifier,
+            method = ?receipt.method,
+            signed_in = receipt.signed_in,
+            "custom check-in request finished"
+        );
+
+        Ok(CheckInAttempt {
+            schedule: build_custom_schedule(identifier, mode, now),
+            receipt,
+        })
+    }
 }
 
 /// Ranks schedule rows and returns the best candidate for the given moment.
@@ -368,6 +407,34 @@ fn compare_schedule_ids(left: &str, right: &str) -> std::cmp::Ordering {
     match (left.parse::<u64>(), right.parse::<u64>()) {
         (Ok(left_num), Ok(right_num)) => left_num.cmp(&right_num),
         _ => left.cmp(right),
+    }
+}
+
+/// Builds a synthetic schedule entry for direct custom attendance requests.
+fn build_custom_schedule(
+    identifier: &str,
+    mode: CheckInMode,
+    moment: NaiveDateTime,
+) -> ScheduleEntry {
+    let (schedule_id, schedule_uuid) = match mode {
+        CheckInMode::Auto | CheckInMode::ByUuid => {
+            (format!("custom:{identifier}"), Some(identifier.to_owned()))
+        }
+        CheckInMode::ById => (identifier.to_owned(), None),
+    };
+
+    ScheduleEntry {
+        schedule_id,
+        schedule_uuid,
+        course_id: None,
+        course_name: "自定义打卡".into(),
+        teacher_name: None,
+        classroom_name: None,
+        teach_date: moment.date(),
+        begins_at: moment,
+        ends_at: moment,
+        lesson_units: 1,
+        sign_status: None,
     }
 }
 

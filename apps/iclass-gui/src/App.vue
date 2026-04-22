@@ -11,16 +11,21 @@ import { useDesktopWindow } from "./composables/useDesktopWindow";
 import { usePreferences } from "./composables/usePreferences";
 import {
   checkIn,
+  checkInCustom,
+  getAutomationSettings,
   getDesktopSettings,
   loadDashboard,
   loadWeekSchedule,
   login,
   logout,
+  updateAutomationSettings,
   updateDesktopSettings
 } from "./lib/tauri";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import type {
+  AutomationSettings,
   CheckInRequest,
+  CustomCheckInRequest,
   DashboardSnapshot,
   DesktopSettings,
   GuiErrorPayload,
@@ -46,6 +51,7 @@ const statusMessage = ref("正在尝试恢复本地 session…");
 const statusTone = ref<"info" | "success" | "error">("info");
 const settingsOpen = ref(false);
 const desktopSettingsLoading = ref(false);
+const automationSettingsLoading = ref(false);
 const scheduleViewMode = ref<"day" | "week">(preferences.defaultScheduleView);
 const scheduleSearch = ref("");
 const desktopSettings = reactive<DesktopSettings>({
@@ -59,6 +65,16 @@ const desktopSettingsSnapshot = reactive<DesktopSettings>({
   closeToTray: false,
   autostartAvailable: false,
   closeToTrayAvailable: false
+});
+const automationSettings = reactive<AutomationSettings>({
+  autoCheckInEnabled: false,
+  autoCheckIntervalSeconds: 30,
+  autoCheckInMode: "auto"
+});
+const automationSettingsSnapshot = reactive<AutomationSettings>({
+  autoCheckInEnabled: false,
+  autoCheckIntervalSeconds: 30,
+  autoCheckInMode: "auto"
 });
 const hasShownTrayHint = ref(false);
 
@@ -174,7 +190,7 @@ async function refreshDashboard(date = selectedDate.value) {
     if (scheduleViewMode.value === "week") {
       await refreshWeekSchedule(next.schedule_date);
     }
-    statusMessage.value = `已同步 ${next.schedules.length} 条课表。`;
+    statusMessage.value = `已同步 ${next.schedules.length} 条课表，用时 ${next.profile.total_ms} ms。`;
     statusTone.value = "success";
   } catch (error) {
     const payload = error as GuiErrorPayload;
@@ -213,6 +229,16 @@ async function bootstrap() {
         statusTone.value = "error";
       }
     }
+    try {
+      const nextAutomationSettings = await getAutomationSettings();
+      automationSettings.autoCheckInEnabled = nextAutomationSettings.autoCheckInEnabled;
+      automationSettings.autoCheckIntervalSeconds = nextAutomationSettings.autoCheckIntervalSeconds;
+      automationSettings.autoCheckInMode = nextAutomationSettings.autoCheckInMode;
+      Object.assign(automationSettingsSnapshot, automationSettings);
+    } catch {
+      statusMessage.value = "读取自动打卡设置失败，已使用当前默认设置。";
+      statusTone.value = "error";
+    }
     if (preferences.autoSyncOnLaunch) {
       await refreshDashboard();
     } else {
@@ -235,9 +261,13 @@ async function submitLogin(request: LoginRequest) {
       await refreshWeekSchedule(next.schedule_date);
     }
     rememberedAccount.value = preferences.rememberLastAccount ? request.account : "";
-    statusMessage.value = "登录成功，工作台已准备就绪。";
+    statusMessage.value = `登录成功，工作台已准备就绪，用时 ${next.profile.total_ms} ms。`;
     statusTone.value = "success";
-    openDialog("登录成功", "欢迎回来，工作台已经同步到最新课表。", "success");
+    openDialog(
+      "登录成功",
+      `欢迎回来，工作台已经同步到最新课表。\n\n本次登录与同步耗时 ${next.profile.total_ms} ms。`,
+      "success"
+    );
   } catch (error) {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
@@ -260,10 +290,10 @@ async function performCheckIn(card: ScheduleCard) {
     const result = await checkIn(request);
     openDialog(
       result.receipt.signed_in ? "打卡成功" : "打卡完成",
-      `${result.schedule.course_name}\n方式：${result.receipt.method}\n记录：${result.receipt.record_id ?? "无"}`,
+      `${result.schedule.course_name}\n方式：${result.receipt.method}\n记录：${result.receipt.record_id ?? "无"}\n耗时：${result.profile.total_ms} ms`,
       "success"
     );
-    statusMessage.value = `${result.schedule.course_name} 打卡请求已完成。`;
+    statusMessage.value = `${result.schedule.course_name} 打卡请求已完成，用时 ${result.profile.total_ms} ms。`;
     statusTone.value = "success";
     await refreshDashboard(selectedDate.value);
   } catch (error) {
@@ -271,6 +301,30 @@ async function performCheckIn(card: ScheduleCard) {
     statusMessage.value = payload.message;
     statusTone.value = "error";
     openDialog("打卡失败", payload.message, "error", payload.retryable ? "重新同步" : "");
+  } finally {
+    submittingCheckIn.value = false;
+  }
+}
+
+async function performCustomCheckIn(request: CustomCheckInRequest) {
+  submittingCheckIn.value = true;
+  statusMessage.value = `正在使用自定义 ${request.mode.toUpperCase()} 发起打卡…`;
+  statusTone.value = "info";
+  try {
+    const result = await checkInCustom(request);
+    openDialog(
+      result.receipt.signed_in ? "打卡成功" : "打卡完成",
+      `${result.schedule.course_name}\n方式：${result.receipt.method}\n标识：${request.identifier}\n记录：${result.receipt.record_id ?? "无"}\n耗时：${result.profile.total_ms} ms`,
+      "success"
+    );
+    statusMessage.value = `自定义打卡请求已完成，用时 ${result.profile.total_ms} ms。`;
+    statusTone.value = "success";
+    await refreshDashboard(selectedDate.value);
+  } catch (error) {
+    const payload = error as GuiErrorPayload;
+    statusMessage.value = payload.message;
+    statusTone.value = "error";
+    openDialog("自定义打卡失败", payload.message, "error");
   } finally {
     submittingCheckIn.value = false;
   }
@@ -288,11 +342,13 @@ async function handleLogout() {
 
 function openSettings() {
   Object.assign(desktopSettings, desktopSettingsSnapshot);
+  Object.assign(automationSettings, automationSettingsSnapshot);
   settingsOpen.value = true;
 }
 
 function closeSettings() {
   Object.assign(desktopSettings, desktopSettingsSnapshot);
+  Object.assign(automationSettings, automationSettingsSnapshot);
   settingsOpen.value = false;
 }
 
@@ -304,7 +360,11 @@ function restoreDefaultSettings() {
 }
 
 async function saveAndCloseSettings() {
-  const saved = await persistDesktopSettings();
+  const [desktopSaved, automationSaved] = await Promise.all([
+    persistDesktopSettings(),
+    persistAutomationSettings()
+  ]);
+  const saved = desktopSaved && automationSaved;
   if (saved) {
     settingsOpen.value = false;
   }
@@ -347,6 +407,43 @@ async function persistDesktopSettings(): Promise<boolean> {
     return false;
   } finally {
     desktopSettingsLoading.value = false;
+  }
+}
+
+async function persistAutomationSettings(): Promise<boolean> {
+  const automationChanged =
+    automationSettings.autoCheckInEnabled !== automationSettingsSnapshot.autoCheckInEnabled ||
+    automationSettings.autoCheckIntervalSeconds !== automationSettingsSnapshot.autoCheckIntervalSeconds ||
+    automationSettings.autoCheckInMode !== automationSettingsSnapshot.autoCheckInMode;
+
+  if (!automationChanged) {
+    return true;
+  }
+
+  automationSettingsLoading.value = true;
+  try {
+    const next = await updateAutomationSettings({
+      autoCheckInEnabled: automationSettings.autoCheckInEnabled,
+      autoCheckIntervalSeconds: automationSettings.autoCheckIntervalSeconds,
+      autoCheckInMode: automationSettings.autoCheckInMode
+    });
+    automationSettings.autoCheckInEnabled = next.autoCheckInEnabled;
+    automationSettings.autoCheckIntervalSeconds = next.autoCheckIntervalSeconds;
+    automationSettings.autoCheckInMode = next.autoCheckInMode;
+    Object.assign(automationSettingsSnapshot, automationSettings);
+    statusMessage.value = next.autoCheckInEnabled
+      ? `自动打卡已开启，轮询间隔 ${next.autoCheckIntervalSeconds} 秒。`
+      : "自动打卡已关闭。";
+    statusTone.value = "success";
+    return true;
+  } catch (error) {
+    const payload = error as GuiErrorPayload;
+    statusMessage.value = payload.message;
+    statusTone.value = "error";
+    openDialog("更新自动打卡设置失败", payload.message, "error");
+    return false;
+  } finally {
+    automationSettingsLoading.value = false;
   }
 }
 
@@ -492,6 +589,7 @@ onBeforeUnmount(() => {
               :dashboard="dashboard"
               :weekly-schedule="weeklySchedule"
               :loading="dashboardLoading || submittingCheckIn"
+              :automation-settings="automationSettings"
               :compact="preferences.compactScheduleCards"
               :search="scheduleSearch"
               :selected-date="selectedDate"
@@ -501,6 +599,7 @@ onBeforeUnmount(() => {
               @check-in="performCheckIn"
               @refresh="handleRefresh"
               @select="selectSchedule"
+              @custom-check-in="performCustomCheckIn"
               @update-search="updateSearch"
               @update-view-mode="updateViewMode"
               @logout="handleLogout"
@@ -529,6 +628,8 @@ onBeforeUnmount(() => {
     />
 
     <SettingsPanel
+      :automation-settings="automationSettings"
+      :automation-loading="automationSettingsLoading"
       :open="settingsOpen"
       :desktop-loading="desktopSettingsLoading"
       :desktop-settings="desktopSettings"

@@ -1,5 +1,6 @@
 //! Tauri desktop backend library for the UCAS iCLASS GUI shell.
 
+mod automation;
 mod commands;
 mod desktop;
 mod models;
@@ -33,11 +34,19 @@ pub fn run() {
                 let session_store = SessionStore::new(config_dir.join("session.json"));
                 let desktop_settings_store =
                     DesktopSettingsStore::new(config_dir.join("desktop-settings.json"));
-                let state = AppState::new(session_store, desktop_settings_store);
+                let automation_settings_store = settings::AutomationSettingsStore::new(
+                    config_dir.join("automation-settings.json"),
+                );
+                let state = AppState::new(
+                    session_store,
+                    desktop_settings_store,
+                    automation_settings_store,
+                );
 
                 app.manage(state.clone());
                 desktop::restore_desktop_settings(app.handle(), &state);
                 desktop::setup_tray(app.handle(), &state)?;
+                automation::spawn_auto_check_loop(state.clone());
 
                 #[cfg(desktop)]
                 if let Some(window) = app.get_webview_window("main") {
@@ -52,8 +61,11 @@ pub fn run() {
             commands::load_dashboard,
             commands::load_week_schedule,
             commands::check_in,
+            commands::check_in_custom,
             commands::get_desktop_settings,
             commands::update_desktop_settings,
+            commands::get_automation_settings,
+            commands::update_automation_settings,
             commands::logout
         ])
         .run(tauri::generate_context!())

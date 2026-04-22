@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { X } from "lucide-vue-next";
 import type { AppPreferences, CheckInModePreference } from "../composables/usePreferences";
-import type { DesktopSettings } from "../lib/types";
+import type { AutomationSettings, DesktopSettings } from "../lib/types";
 
 defineProps<{
   open: boolean;
   preferences: AppPreferences;
   desktopSettings: DesktopSettings;
   desktopLoading: boolean;
+  automationSettings: AutomationSettings;
+  automationLoading: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -50,6 +52,61 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
           </div>
 
           <div class="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+            <section class="glass-panel p-5">
+              <h4 class="text-base font-semibold text-ink-950">自动打卡</h4>
+              <div class="mt-4 space-y-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                  <input
+                    v-model="automationSettings.autoCheckInEnabled"
+                    :disabled="automationLoading"
+                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500 disabled:opacity-60"
+                    type="checkbox"
+                  />
+                  <span>
+                    <span class="block text-sm font-semibold text-ink-900">后台自动打卡</span>
+                    <span class="mt-1 block text-sm leading-6 text-ink-500">
+                      应用启动后会在后台定时检查最近课程；若已进入打卡窗口，则按下面的模式自动尝试打卡。
+                    </span>
+                  </span>
+                </label>
+
+                <label class="block rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                  <span class="block text-sm font-semibold text-ink-900">轮询间隔</span>
+                  <span class="mt-1 block text-sm leading-6 text-ink-500">建议 15-60 秒，过短只会增加无效请求。</span>
+                  <input
+                    v-model.number="automationSettings.autoCheckIntervalSeconds"
+                    :disabled="automationLoading"
+                    class="field-input mt-3"
+                    max="300"
+                    min="15"
+                    step="5"
+                    type="number"
+                  />
+                </label>
+
+                <div class="space-y-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                  <span class="block text-sm font-semibold text-ink-900">自动打卡模式</span>
+                  <label
+                    v-for="option in modeOptions"
+                    :key="`auto-${option.value}`"
+                    class="flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-4 transition"
+                    :class="automationSettings.autoCheckInMode === option.value ? 'border-accent-300 bg-accent-50/80' : 'border-slate-200/80 bg-white/70'"
+                  >
+                    <input
+                      v-model="automationSettings.autoCheckInMode"
+                      class="mt-1 h-4 w-4 border-slate-300 text-accent-600 focus:ring-accent-500"
+                      :value="option.value"
+                      type="radio"
+                    />
+                    <span>
+                      <span class="block text-sm font-semibold text-ink-900">{{ option.label }}</span>
+                      <span class="mt-1 block text-sm leading-6 text-ink-500">{{ option.description }}</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </section>
+
             <section class="glass-panel p-5">
               <h4 class="text-base font-semibold text-ink-950">启动与恢复</h4>
               <div class="mt-4 space-y-4">

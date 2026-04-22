@@ -1,5 +1,7 @@
 //! GUI-facing bridge models and helper functions built on top of the core facade.
 
+use std::time::Instant;
+
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime};
 use iclass_core::{CheckInReceipt, CoreErrorKind, Course, IClassCore};
 use iclass_domain::{CheckInAvailability, CheckInMode, ScheduleEntry, Semester};
@@ -124,6 +126,52 @@ pub struct ScheduleCard {
     pub can_check_in: bool,
 }
 
+/// Single measured phase within a higher-level GUI operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfilePhase {
+    /// Stable phase name for display or diagnostics.
+    pub name: String,
+    /// Elapsed wall-clock time for the phase in milliseconds.
+    pub duration_ms: u64,
+}
+
+/// Aggregated timing profile for a GUI-facing operation.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct OperationProfile {
+    /// Total wall-clock time across the full operation.
+    pub total_ms: u64,
+    /// Named sub-phases that contributed to the total runtime.
+    pub phases: Vec<ProfilePhase>,
+}
+
+impl OperationProfile {
+    /// Creates an empty operation profile.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Records one named phase and updates the total duration.
+    pub fn push_phase(&mut self, name: impl Into<String>, duration_ms: u64) {
+        self.total_ms = self.total_ms.saturating_add(duration_ms);
+        self.phases.push(ProfilePhase {
+            name: name.into(),
+            duration_ms,
+        });
+    }
+
+    /// Prepends a phase to an existing profile and updates the total duration.
+    pub fn prepend_phase(&mut self, name: impl Into<String>, duration_ms: u64) {
+        self.total_ms = self.total_ms.saturating_add(duration_ms);
+        self.phases.insert(
+            0,
+            ProfilePhase {
+                name: name.into(),
+                duration_ms,
+            },
+        );
+    }
+}
+
 /// Snapshot of the data commonly needed for a dashboard/home screen.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardSnapshot {
@@ -144,6 +192,9 @@ pub struct DashboardSnapshot {
 
     /// GUI-oriented schedule cards for the selected day.
     pub schedules: Vec<ScheduleCard>,
+
+    /// Timing profile for the dashboard load operation.
+    pub profile: OperationProfile,
 }
 
 /// Snapshot of the weekly schedule view anchored at a selected date.
@@ -160,6 +211,9 @@ pub struct WeeklyScheduleSnapshot {
 
     /// GUI-oriented schedule cards across the selected week.
     pub schedules: Vec<ScheduleCard>,
+
+    /// Timing profile for the weekly schedule load operation.
+    pub profile: OperationProfile,
 }
 
 /// GUI-friendly representation of a completed attendance attempt.
@@ -170,6 +224,9 @@ pub struct CheckInViewModel {
 
     /// Attendance result returned by the core layer.
     pub receipt: CheckInReceipt,
+
+    /// Timing profile for the attendance operation.
+    pub profile: OperationProfile,
 }
 
 /// Builds GUI-friendly schedule cards for the provided rows and local time.
@@ -204,8 +261,24 @@ pub async fn load_dashboard_for(
     date: NaiveDate,
 ) -> Result<DashboardSnapshot, GuiBridgeError> {
     let now = Local::now();
+    let mut profile = OperationProfile::new();
+
+    let started = Instant::now();
     let session = core.current_session().await?;
+    profile.push_phase("session", elapsed_ms(started));
+
+    let started = Instant::now();
+    let semesters = core.semesters().await?;
+    profile.push_phase("semesters", elapsed_ms(started));
+
+    let started = Instant::now();
+    let courses = core.courses().await?;
+    profile.push_phase("courses", elapsed_ms(started));
+
+    let started = Instant::now();
     let schedules = core.daily_schedule(date).await?;
+    profile.push_phase("daily_schedule", elapsed_ms(started));
+
     Ok(DashboardSnapshot {
         generated_at: now,
         session: SessionSummary {
@@ -213,10 +286,11 @@ pub async fn load_dashboard_for(
             real_name: session.real_name,
             authenticated: true,
         },
-        semesters: core.semesters().await?,
-        courses: core.courses().await?,
+        semesters,
+        courses,
         schedule_date: date,
         schedules: build_schedule_cards(schedules, now.naive_local()),
+        profile,
     })
 }
 
@@ -226,17 +300,21 @@ pub async fn load_week_schedule_for(
     date: NaiveDate,
 ) -> Result<WeeklyScheduleSnapshot, GuiBridgeError> {
     let now = Local::now();
+    let started = Instant::now();
     let weekday_offset = i64::from(date.weekday().num_days_from_monday());
     let week_start = date - chrono::Days::new(weekday_offset as u64);
     let week_end = week_start + chrono::Days::new(6);
     let mut schedules = core.weekly_schedule(date).await?;
     schedules.sort_by_key(|schedule| (schedule.teach_date, schedule.begins_at, schedule.ends_at));
+    let mut profile = OperationProfile::new();
+    profile.push_phase("weekly_schedule", elapsed_ms(started));
 
     Ok(WeeklyScheduleSnapshot {
         generated_at: now,
         week_start,
         week_end,
         schedules: build_schedule_cards(schedules, now.naive_local()),
+        profile,
     })
 }
 
@@ -245,11 +323,24 @@ pub async fn perform_check_in(
     core: &IClassCore,
     mode: CheckInMode,
 ) -> Result<CheckInViewModel, GuiBridgeError> {
+    let started = Instant::now();
     let result = core.check_in_now(mode).await?;
     Ok(CheckInViewModel {
         schedule: result.schedule,
         receipt: result.receipt,
+        profile: OperationProfile {
+            total_ms: elapsed_ms(started),
+            phases: vec![ProfilePhase {
+                name: "check_in".into(),
+                duration_ms: elapsed_ms(started),
+            }],
+        },
     })
+}
+
+/// Returns the elapsed time since `started` in milliseconds, saturating at `u64::MAX`.
+fn elapsed_ms(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 #[cfg(test)]

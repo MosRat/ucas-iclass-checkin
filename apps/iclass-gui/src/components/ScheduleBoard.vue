@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import type { DashboardSnapshot, ScheduleCard, WeeklyScheduleSnapshot } from "../lib/types";
+import { computed, ref } from "vue";
+import type {
+  AutomationSettings,
+  CustomCheckInRequest,
+  DashboardSnapshot,
+  ScheduleCard,
+  WeeklyScheduleSnapshot
+} from "../lib/types";
 
 const props = defineProps<{
   dashboard: DashboardSnapshot;
   weeklySchedule: WeeklyScheduleSnapshot | null;
+  automationSettings: AutomationSettings;
   loading: boolean;
   selectedDate: string;
   selectedScheduleId?: string | null;
@@ -17,11 +24,15 @@ const emit = defineEmits<{
   changeDate: [string];
   checkIn: [ScheduleCard];
   select: [ScheduleCard];
+  customCheckIn: [CustomCheckInRequest];
   refresh: [];
   updateViewMode: ["day" | "week"];
   updateSearch: [string];
   logout: [];
 }>();
+
+const customIdentifier = ref("");
+const customMode = ref<"uuid" | "id">("uuid");
 
 const visibleSchedules = computed(() => {
   const source =
@@ -106,6 +117,18 @@ function renderCard(card: ScheduleCard) {
     label: availabilityLabel(card),
     hint: availabilityHint(card)
   };
+}
+
+function submitCustomCheckIn() {
+  const identifier = customIdentifier.value.trim();
+  if (!identifier) {
+    return;
+  }
+
+  emit("customCheckIn", {
+    identifier,
+    mode: customMode.value
+  });
 }
 </script>
 
@@ -364,6 +387,58 @@ function renderCard(card: ScheduleCard) {
           <li>周视图支持按课程名、教师、地点和课程编号快速筛选。</li>
           <li>打卡按钮会在课程开始前 30 分钟自动变为可用。</li>
         </ul>
+      </div>
+
+      <div class="glass-panel p-3.5 sm:p-5">
+        <h3 class="text-lg font-semibold text-ink-950">自动打卡状态</h3>
+        <p class="mt-3 text-sm leading-6 text-ink-600">
+          {{
+            props.automationSettings.autoCheckInEnabled
+              ? `已开启，按 ${props.automationSettings.autoCheckInMode.toUpperCase()} 模式每 ${props.automationSettings.autoCheckIntervalSeconds} 秒轮询一次。`
+              : "未开启，可在设置里打开后台自动打卡。"
+          }}
+        </p>
+      </div>
+
+      <div class="glass-panel p-3.5 sm:p-5">
+        <h3 class="text-lg font-semibold text-ink-950">自定义打卡</h3>
+        <p class="mt-3 text-sm leading-6 text-ink-600">适合你已经明确知道目标课程的排课 ID 或 UUID 时手动补打卡。</p>
+        <div class="mt-4 space-y-3">
+          <div class="inline-flex rounded-3xl border border-white/70 bg-white/90 p-1 shadow-[0_8px_20px_rgba(27,46,89,0.08)]">
+            <button
+              class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
+              :class="customMode === 'uuid' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
+              type="button"
+              @click="customMode = 'uuid'"
+            >
+              UUID
+            </button>
+            <button
+              class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
+              :class="customMode === 'id' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
+              type="button"
+              @click="customMode = 'id'"
+            >
+              ID
+            </button>
+          </div>
+
+          <input
+            v-model.trim="customIdentifier"
+            class="field-input"
+            :placeholder="customMode === 'uuid' ? '输入 timeTableId / UUID' : '输入 courseSchedId / ID'"
+            type="text"
+          />
+
+          <button
+            class="primary-btn w-full justify-center"
+            :disabled="loading || !customIdentifier.trim()"
+            type="button"
+            @click="submitCustomCheckIn"
+          >
+            {{ loading ? "处理中..." : `按 ${customMode.toUpperCase()} 打卡` }}
+          </button>
+        </div>
       </div>
     </aside>
   </section>

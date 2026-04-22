@@ -66,11 +66,20 @@ export function loadWeekSchedule(date) {
 export function checkIn(request) {
     return invokeCommand("check_in", { request });
 }
+export function checkInCustom(request) {
+    return invokeCommand("check_in_custom", { request });
+}
 export function getDesktopSettings() {
     return invokeCommand("get_desktop_settings");
 }
 export function updateDesktopSettings(request) {
     return invokeCommand("update_desktop_settings", { request });
+}
+export function getAutomationSettings() {
+    return invokeCommand("get_automation_settings");
+}
+export function updateAutomationSettings(request) {
+    return invokeCommand("update_automation_settings", { request });
 }
 export function logout() {
     return invokeCommand("logout");

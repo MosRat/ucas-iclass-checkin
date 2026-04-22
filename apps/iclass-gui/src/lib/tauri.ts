@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AutomationSettings,
   CheckInRequest,
   CheckInViewModel,
+  CustomCheckInRequest,
   DashboardSnapshot,
   DesktopSettings,
   GuiErrorPayload,
@@ -87,12 +89,24 @@ export function checkIn(request: CheckInRequest): Promise<CheckInViewModel> {
   return invokeCommand("check_in", { request });
 }
 
+export function checkInCustom(request: CustomCheckInRequest): Promise<CheckInViewModel> {
+  return invokeCommand("check_in_custom", { request });
+}
+
 export function getDesktopSettings(): Promise<DesktopSettings> {
   return invokeCommand("get_desktop_settings");
 }
 
 export function updateDesktopSettings(request: DesktopSettings): Promise<DesktopSettings> {
   return invokeCommand("update_desktop_settings", { request });
+}
+
+export function getAutomationSettings(): Promise<AutomationSettings> {
+  return invokeCommand("get_automation_settings");
+}
+
+export function updateAutomationSettings(request: AutomationSettings): Promise<AutomationSettings> {
+  return invokeCommand("update_automation_settings", { request });
 }
 
 export function logout(): Promise<void> {
