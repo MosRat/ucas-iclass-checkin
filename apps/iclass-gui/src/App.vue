@@ -37,13 +37,20 @@ import type {
 const desktopWindow = useDesktopWindow();
 const { desktopShell, maximized, syncMaximized, minimize, toggleMaximize, startDragging, close } = desktopWindow;
 const { preferences, resetPreferences } = usePreferences();
+
+function localDateInputValue(date = new Date()) {
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60_000);
+  return localDate.toISOString().slice(0, 10);
+}
+
 const dashboard = ref<DashboardSnapshot | null>(null);
 const weeklySchedule = ref<WeeklyScheduleSnapshot | null>(null);
 const loginLoading = ref(false);
 const dashboardLoading = ref(false);
 const submittingCheckIn = ref(false);
 const bootstrapping = ref(true);
-const selectedDate = ref(new Date().toISOString().slice(0, 10));
+const selectedDate = ref(localDateInputValue());
 const rememberedAccount = ref("");
 const selectedCard = ref<ScheduleCard | null>(null);
 const currentTime = ref(new Date().toISOString());
@@ -192,10 +199,11 @@ function syncDashboardState(next: DashboardSnapshot) {
   const preserved =
     selectedCard.value &&
     next.schedules.find((card) => card.schedule.schedule_id === selectedCard.value?.schedule.schedule_id);
+  const autoCheckable = next.schedules.find((card) => card.can_check_in) ?? null;
   selectedCard.value =
     preserved ??
     (preferences.autoOpenCheckableSchedule
-      ? next.schedules.find((card) => card.can_check_in) ?? next.schedules[0] ?? null
+      ? autoCheckable
       : null);
 }
 
