@@ -81,7 +81,9 @@ pnpm tauri build
 
 Tagged releases include desktop GUI bundles, Android bundles, desktop CLI bundles, and the agent skill bundle.
 
-The Linux CLI bundle targets `x86_64-unknown-linux-musl` and is built with `cargo zigbuild` to avoid glibc compatibility issues across distributions.
+The Linux CLI bundle targets `x86_64-unknown-linux-musl` and is built with `cargo zigbuild` to avoid glibc compatibility issues across distributions. The macOS CLI bundle also uses `cargo zigbuild`; the Windows CLI bundle keeps the native MSVC build because cargo-zigbuild currently supports Linux and macOS targets, not Windows targets.
+
+The desktop GUI build remains on the Tauri default cargo runner. Tauri `build` supports `--runner`, but the GUI bundle includes platform installer tooling and Linux WebKit/pkg-config dependencies, so switching the GUI to zigbuild should be tested separately before it becomes part of release.
 
 ## Privacy
 

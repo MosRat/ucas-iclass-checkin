@@ -12,6 +12,7 @@ Use the `iclass-cli` binary for local UCAS iCLASS operations when the user asks 
 - In the repository, run with `cargo run -p iclass-cli -- <args>`.
 - In release bundles, run `./iclass-cli <args>` on Linux/macOS or `.\iclass-cli.exe <args>` on Windows.
 - The Linux release binary is built for `x86_64-unknown-linux-musl` with `cargo zigbuild` to avoid glibc compatibility issues.
+- The macOS release binary also uses `cargo zigbuild`; the Windows release binary uses the native MSVC toolchain because cargo-zigbuild does not currently support Windows targets.
 
 ## Credentials
 

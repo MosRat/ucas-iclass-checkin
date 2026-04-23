@@ -99,14 +99,17 @@ jobs:
             artifact_name: cli-linux-musl
             target: x86_64-unknown-linux-musl
             archive_ext: tar.gz
+            use_zigbuild: true
           - platform: windows-latest
             artifact_name: cli-windows
             target: x86_64-pc-windows-msvc
             archive_ext: zip
+            use_zigbuild: false
           - platform: macos-latest
             artifact_name: cli-macos
             target: aarch64-apple-darwin
             archive_ext: tar.gz
+            use_zigbuild: true
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v6
@@ -118,18 +121,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - uses: mlugg/setup-zig@v2
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.use_zigbuild
 
       - name: install cargo-zigbuild
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.use_zigbuild
         run: cargo install cargo-zigbuild --locked
 
-      - name: build linux musl cli
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: build zig cli
+        if: matrix.use_zigbuild
         run: cargo zigbuild --release --package iclass-cli --target ${{ matrix.target }}
 
       - name: build native cli
-        if: matrix.platform != 'ubuntu-22.04'
+        if: ${{ !matrix.use_zigbuild }}
         shell: bash
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
