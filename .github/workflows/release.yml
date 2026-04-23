@@ -6,6 +6,9 @@ on:
     tags:
       - "app-v*"
 
+env:
+  ZIG_VERSION: 0.15.1
+
 jobs:
   desktop-release:
     name: desktop-${{ matrix.platform }}
@@ -120,8 +123,33 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - uses: mlugg/setup-zig@v2
+      - name: install zig
         if: matrix.use_zigbuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$(uname -s)-$(uname -m)" in
+            Linux-x86_64)
+              archive="zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+              ;;
+            Darwin-arm64)
+              archive="zig-aarch64-macos-${ZIG_VERSION}.tar.xz"
+              ;;
+            Darwin-x86_64)
+              archive="zig-x86_64-macos-${ZIG_VERSION}.tar.xz"
+              ;;
+            *)
+              echo "unsupported zig host: $(uname -s)-$(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          install_dir="${RUNNER_TEMP}/zig"
+          mkdir -p "$install_dir"
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/${archive}" -o "${install_dir}/${archive}"
+          tar -xf "${install_dir}/${archive}" -C "$install_dir"
+          zig_dir="${install_dir}/${archive%.tar.xz}"
+          echo "$zig_dir" >> "$GITHUB_PATH"
+          "$zig_dir/zig" version
 
       - name: install cargo-zigbuild
         if: matrix.use_zigbuild
