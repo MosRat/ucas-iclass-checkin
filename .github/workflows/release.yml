@@ -227,7 +227,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android
 
       - uses: Swatinem/rust-cache@v2
 
@@ -260,7 +260,7 @@ jobs:
 
       - name: build android artifacts
         working-directory: apps/iclass-gui
-        run: pnpm tauri android build --apk --aab
+        run: pnpm tauri android build --target aarch64 --apk --aab
 
       - name: stage android artifacts
         shell: bash
@@ -272,8 +272,12 @@ jobs:
           fi
           stage="release-staging/android"
           mkdir -p "$stage"
-          cp apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk "$stage/ucas-iclass-checkin_${version}_android_universal.apk"
-          cp apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab "$stage/ucas-iclass-checkin_${version}_android_universal.aab"
+          apk_path="$(find apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk -path '*/release/*.apk' -print -quit)"
+          aab_path="$(find apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle -path '*Release/*.aab' -print -quit)"
+          test -n "$apk_path"
+          test -n "$aab_path"
+          cp "$apk_path" "$stage/ucas-iclass-checkin_${version}_android_aarch64.apk"
+          cp "$aab_path" "$stage/ucas-iclass-checkin_${version}_android_aarch64.aab"
 
       - name: upload android artifacts
         uses: actions/upload-artifact@v7
@@ -371,5 +375,5 @@ jobs:
       - name: attach artifacts to release
         uses: softprops/action-gh-release@v3
         with:
-          draft: true
+          draft: false
           files: release-assets/**/*

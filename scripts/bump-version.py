@@ -134,7 +134,7 @@ def main() -> int:
             raise RuntimeError(f"version {version} is already current")
 
         tag = f"app-v{version}"
-        commit_message = f"release(version): bump to {version}"
+        commit_message = f"chore(version). bump to {version}"
 
         run_git(["fetch", "--tags", "origin"])
 
