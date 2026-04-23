@@ -56,11 +56,36 @@ jobs:
           RUSTFLAGS: ""
         run: pnpm tauri build
 
+      - name: stage desktop installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#app-v}"
+          if [ "$version" = "$GITHUB_REF_NAME" ]; then
+            version="$(node -p "require('./apps/iclass-gui/package.json').version")"
+          fi
+          stage="release-staging/desktop"
+          mkdir -p "$stage"
+          case "${{ matrix.platform }}" in
+            ubuntu-22.04)
+              cp target/release/bundle/appimage/*.AppImage "$stage/ucas-iclass-checkin_${version}_linux_x86_64.AppImage"
+              cp target/release/bundle/deb/*.deb "$stage/ucas-iclass-checkin_${version}_linux_amd64.deb"
+              cp target/release/bundle/rpm/*.rpm "$stage/ucas-iclass-checkin_${version}_linux_x86_64.rpm"
+              ;;
+            windows-latest)
+              cp target/release/bundle/nsis/*-setup.exe "$stage/ucas-iclass-checkin_${version}_windows_x64-setup.exe"
+              cp target/release/bundle/msi/*.msi "$stage/ucas-iclass-checkin_${version}_windows_x64.msi"
+              ;;
+            macos-latest)
+              cp target/release/bundle/dmg/*.dmg "$stage/ucas-iclass-checkin_${version}_macos_aarch64.dmg"
+              ;;
+          esac
+
       - name: upload desktop bundles
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: target/release/bundle/**/*
+          path: release-staging/desktop/*
           if-no-files-found: error
 
   android-release:
@@ -117,13 +142,24 @@ jobs:
         working-directory: apps/iclass-gui
         run: pnpm tauri android build --apk --aab
 
+      - name: stage android artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#app-v}"
+          if [ "$version" = "$GITHUB_REF_NAME" ]; then
+            version="$(node -p "require('./apps/iclass-gui/package.json').version")"
+          fi
+          stage="release-staging/android"
+          mkdir -p "$stage"
+          cp apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk "$stage/ucas-iclass-checkin_${version}_android_universal.apk"
+          cp apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab "$stage/ucas-iclass-checkin_${version}_android_universal.aab"
+
       - name: upload android artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-release-artifacts
-          path: |
-            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-            apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+          path: release-staging/android/*
           if-no-files-found: error
 
   publish-release:
@@ -164,12 +200,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: |
-            release-assets/linux/**/*.AppImage
-            release-assets/linux/**/*.deb
-            release-assets/linux/**/*.rpm
-            release-assets/windows/**/*.exe
-            release-assets/windows/**/*.msi
-            release-assets/macos/**/*.dmg
-            release-assets/android/**/*.apk
-            release-assets/android/**/*.aab
+          files: release-assets/**/*

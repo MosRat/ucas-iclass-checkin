@@ -42,6 +42,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": "all"
+    "targets": "all",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    }
   }
 }
