@@ -1,0 +1,7 @@
+interface:
+  display_name: "iCLASS CLI"
+  short_description: "Use the bundled UCAS iCLASS CLI"
+  default_prompt: "Use $iclass-cli to inspect my saved iCLASS session and today's schedule."
+
+policy:
+  allow_implicit_invocation: true

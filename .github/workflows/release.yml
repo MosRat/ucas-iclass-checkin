@@ -62,7 +62,7 @@ jobs:
           set -euo pipefail
           version="${GITHUB_REF_NAME#app-v}"
           if [ "$version" = "$GITHUB_REF_NAME" ]; then
-            version="$(node -p "require('./apps/iclass-gui/package.json').version")"
+            version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' apps/iclass-gui/package.json | head -n1)"
           fi
           stage="release-staging/desktop"
           mkdir -p "$stage"
@@ -86,6 +86,95 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: release-staging/desktop/*
+          if-no-files-found: error
+
+  cli-release:
+    name: cli-${{ matrix.platform }}
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            artifact_name: cli-linux-musl
+            target: x86_64-unknown-linux-musl
+            archive_ext: tar.gz
+          - platform: windows-latest
+            artifact_name: cli-windows
+            target: x86_64-pc-windows-msvc
+            archive_ext: zip
+          - platform: macos-latest
+            artifact_name: cli-macos
+            target: aarch64-apple-darwin
+            archive_ext: tar.gz
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: mlugg/setup-zig@v2
+        if: matrix.platform == 'ubuntu-22.04'
+
+      - name: install cargo-zigbuild
+        if: matrix.platform == 'ubuntu-22.04'
+        run: cargo install cargo-zigbuild --locked
+
+      - name: build linux musl cli
+        if: matrix.platform == 'ubuntu-22.04'
+        run: cargo zigbuild --release --package iclass-cli --target ${{ matrix.target }}
+
+      - name: build native cli
+        if: matrix.platform != 'ubuntu-22.04'
+        shell: bash
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: ${{ matrix.platform == 'windows-latest' && '-C target-feature=+crt-static' || '' }}
+        run: cargo build --release --package iclass-cli --target ${{ matrix.target }}
+
+      - name: stage cli binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#app-v}"
+          if [ "$version" = "$GITHUB_REF_NAME" ]; then
+            version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' apps/iclass-gui/package.json | head -n1)"
+          fi
+          stage="release-staging/cli"
+          mkdir -p "$stage/package"
+          case "${{ matrix.platform }}" in
+            ubuntu-22.04)
+              platform_name="linux_x86_64-musl"
+              binary="target/${{ matrix.target }}/release/iclass-cli"
+              cp "$binary" "$stage/package/iclass-cli"
+              ;;
+            windows-latest)
+              platform_name="windows_x64"
+              binary="target/${{ matrix.target }}/release/iclass-cli.exe"
+              cp "$binary" "$stage/package/iclass-cli.exe"
+              ;;
+            macos-latest)
+              platform_name="macos_aarch64"
+              binary="target/${{ matrix.target }}/release/iclass-cli"
+              cp "$binary" "$stage/package/iclass-cli"
+              ;;
+          esac
+          cp README.md LICENSE "$stage/package/"
+          archive_base="ucas-iclass-cli_${version}_${platform_name}"
+          if [ "${{ matrix.archive_ext }}" = "zip" ]; then
+            (cd "$stage/package" && 7z a "../${archive_base}.zip" .)
+          else
+            tar -czf "$stage/${archive_base}.tar.gz" -C "$stage/package" .
+          fi
+
+      - name: upload cli bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: release-staging/cli/*.${{ matrix.archive_ext }}
           if-no-files-found: error
 
   android-release:
@@ -148,7 +237,7 @@ jobs:
           set -euo pipefail
           version="${GITHUB_REF_NAME#app-v}"
           if [ "$version" = "$GITHUB_REF_NAME" ]; then
-            version="$(node -p "require('./apps/iclass-gui/package.json').version")"
+            version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' apps/iclass-gui/package.json | head -n1)"
           fi
           stage="release-staging/android"
           mkdir -p "$stage"
@@ -162,12 +251,40 @@ jobs:
           path: release-staging/android/*
           if-no-files-found: error
 
+  agent-skill-release:
+    name: agent-skill-release
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: stage agent skill
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#app-v}"
+          if [ "$version" = "$GITHUB_REF_NAME" ]; then
+            version="$(node -p "require('./apps/iclass-gui/package.json').version")"
+          fi
+          stage="release-staging/agent-skill"
+          mkdir -p "$stage"
+          (cd .agents/skills && zip -r "../../$stage/ucas-iclass-cli-skill_${version}.zip" iclass-cli)
+
+      - name: upload agent skill
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-skill
+          path: release-staging/agent-skill/*.zip
+          if-no-files-found: error
+
   publish-release:
     name: publish-release
     if: startsWith(github.ref, 'refs/tags/app-v')
     needs:
       - desktop-release
+      - cli-release
       - android-release
+      - agent-skill-release
     permissions:
       contents: write
     runs-on: ubuntu-22.04
@@ -195,6 +312,30 @@ jobs:
         with:
           name: android-release-artifacts
           path: release-assets/android
+
+      - name: download cli linux bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: cli-linux-musl
+          path: release-assets/cli
+
+      - name: download cli windows bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: cli-windows
+          path: release-assets/cli
+
+      - name: download cli macos bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: cli-macos
+          path: release-assets/cli
+
+      - name: download agent skill bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: agent-skill
+          path: release-assets/agent-skill
 
       - name: attach artifacts to release
         uses: softprops/action-gh-release@v3

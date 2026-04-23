@@ -77,6 +77,12 @@ pnpm build
 pnpm tauri build
 ```
 
+### Release Artifacts
+
+Tagged releases include desktop GUI bundles, Android bundles, desktop CLI bundles, and the agent skill bundle.
+
+The Linux CLI bundle targets `x86_64-unknown-linux-musl` and is built with `cargo zigbuild` to avoid glibc compatibility issues across distributions.
+
 ## Privacy
 
 - Keep credentials and session data on your own device.
