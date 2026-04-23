@@ -1806,7 +1806,7 @@ dependencies = [
 
 [[package]]
 name = "iclass-gui-app"
-version = "0.1.4"
+version = "0.1.7"
 dependencies = [
  "chrono",
  "dirs 6.0.0",
