@@ -18,6 +18,7 @@ SEMVER_PATTERN = re.compile(
 
 VERSION_FILES = (
     Path("Cargo.toml"),
+    Path("Cargo.lock"),
     Path("apps/iclass-gui/package.json"),
     Path("apps/iclass-gui/src-tauri/tauri.conf.json"),
 )
@@ -125,7 +126,7 @@ def main() -> int:
                     "or pass --allow-dirty"
                 )
 
-        cargo_toml_path = VERSION_FILES[0]
+        cargo_toml_path = Path("Cargo.toml")
         cargo_toml = cargo_toml_path.read_text(encoding="utf-8")
         current_version = read_workspace_version(cargo_toml)
 
@@ -166,9 +167,10 @@ def main() -> int:
             encoding="utf-8",
             newline="\n",
         )
-        replace_json_version(VERSION_FILES[1], version)
-        replace_json_version(VERSION_FILES[2], version)
+        replace_json_version(Path("apps/iclass-gui/package.json"), version)
+        replace_json_version(Path("apps/iclass-gui/src-tauri/tauri.conf.json"), version)
 
+        subprocess.run(["cargo", "generate-lockfile"], check=True)
         run_git(["add", "--", *(path.as_posix() for path in VERSION_FILES)])
         run_git(["commit", "-m", commit_message])
         run_git(["tag", "-a", tag, "-m", f"Release {version}"])
