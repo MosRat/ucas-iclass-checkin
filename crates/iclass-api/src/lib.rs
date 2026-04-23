@@ -291,6 +291,7 @@ impl IClassApiClient {
     }
 
     /// Attempts attendance using the UUID-style `timeTableId` parameter.
+    #[allow(unused_variables)]
     pub async fn check_in_by_uuid(
         &self,
         session: &Session,
@@ -306,6 +307,7 @@ impl IClassApiClient {
     }
 
     /// Attempts attendance using the numeric `courseSchedId` parameter.
+    #[allow(unused_variables)]
     pub async fn check_in_by_id(
         &self,
         session: &Session,
