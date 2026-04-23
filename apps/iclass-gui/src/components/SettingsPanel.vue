@@ -5,6 +5,7 @@ import type { AutomationSettings, DesktopSettings } from "../lib/types";
 
 defineProps<{
   open: boolean;
+  desktopShell: boolean;
   preferences: AppPreferences;
   desktopSettings: DesktopSettings;
   desktopLoading: boolean;
@@ -140,7 +141,7 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
               </div>
             </section>
 
-            <section class="glass-panel p-5">
+            <section v-if="desktopShell" class="glass-panel p-5">
               <h4 class="text-base font-semibold text-ink-950">桌面集成</h4>
               <div class="mt-4 space-y-4">
                 <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">

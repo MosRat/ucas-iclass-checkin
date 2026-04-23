@@ -65,5 +65,17 @@ function handlePointerDown(event: MouseEvent) {
         </button>
       </div>
     </div>
+
+    <div v-else class="ml-4 flex items-center gap-2 no-drag">
+      <button
+        class="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/80 bg-white/88 px-3.5 text-sm font-semibold text-ink-700 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition active:scale-[0.98]"
+        title="设置"
+        type="button"
+        @click="$emit('settings')"
+      >
+        <Settings2 class="h-4 w-4" aria-hidden="true" />
+        <span>设置</span>
+      </button>
+    </div>
   </header>
 </template>

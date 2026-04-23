@@ -708,6 +708,7 @@ onBeforeUnmount(() => {
     <SettingsPanel
       :automation-settings="automationSettings"
       :automation-loading="automationSettingsLoading"
+      :desktop-shell="desktopShell"
       :open="settingsOpen"
       :desktop-loading="desktopSettingsLoading"
       :desktop-settings="desktopSettings"
