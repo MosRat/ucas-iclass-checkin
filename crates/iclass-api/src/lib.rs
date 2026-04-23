@@ -8,8 +8,16 @@ use iclass_domain::{
 use reqwest::{Client, Url, multipart};
 use serde::Deserialize;
 use thiserror::Error;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-const TIME_SHIFT:i64 = 30000;
+const TIME_SHIFT:u64 = 30000;
+
+fn current_timestamp_ms() -> u64 {  
+    SystemTime::now()  
+        .duration_since(UNIX_EPOCH)  
+        .expect("system time before UNIX_EPOCH")  
+        .as_millis() as u64  // as_millis() 自Rust 1.33+  
+}  
 
 /// Stable classification of low-level API failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -293,7 +301,7 @@ impl IClassApiClient {
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("timeTableId", schedule_uuid)
-            .append_pair("timestamp", &(timestamp + TIME_SHIFT).to_string());
+            .append_pair("timestamp", &(current_timestamp_ms() + TIME_SHIFT).to_string());
         self.check_in(session, url, CheckInMethod::Uuid).await
     }
 
@@ -308,7 +316,7 @@ impl IClassApiClient {
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("courseSchedId", schedule_id)
-            .append_pair("timestamp", &(timestamp + TIME_SHIFT).to_string());
+            .append_pair("timestamp", &(current_timestamp_ms() + TIME_SHIFT).to_string());
         self.check_in(session, url, CheckInMethod::Id).await
     }
 
