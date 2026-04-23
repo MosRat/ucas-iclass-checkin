@@ -9,6 +9,13 @@ use crate::models::CheckInModePayload;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Lower bound for persisted and runtime auto check-in polling.
+pub(crate) const MIN_AUTO_CHECK_INTERVAL_SECONDS: u64 = 30;
+/// Default auto check-in polling interval used for new installs.
+pub(crate) const DEFAULT_AUTO_CHECK_INTERVAL_SECONDS: u64 = 45;
+/// Upper bound for persisted and runtime auto check-in polling.
+pub(crate) const MAX_AUTO_CHECK_INTERVAL_SECONDS: u64 = 300;
+
 /// Persisted desktop preference snapshot.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub(crate) struct PersistedDesktopSettings {
@@ -47,7 +54,21 @@ impl Default for PersistedAutomationSettings {
         Self {
             auto_check_in_enabled: false,
             auto_check_in_mode: CheckInModePayload::Auto,
-            auto_check_interval_seconds: 30,
+            auto_check_interval_seconds: DEFAULT_AUTO_CHECK_INTERVAL_SECONDS,
+        }
+    }
+}
+
+impl PersistedAutomationSettings {
+    /// Normalizes persisted automation settings into the supported runtime range.
+    pub(crate) fn normalized(self) -> Self {
+        Self {
+            auto_check_in_enabled: self.auto_check_in_enabled,
+            auto_check_in_mode: self.auto_check_in_mode,
+            auto_check_interval_seconds: self.auto_check_interval_seconds.clamp(
+                MIN_AUTO_CHECK_INTERVAL_SECONDS,
+                MAX_AUTO_CHECK_INTERVAL_SECONDS,
+            ),
         }
     }
 }
@@ -124,10 +145,12 @@ impl AutomationSettingsStore {
 
     /// Loads persisted automation settings, returning defaults when the file does not exist.
     pub(crate) fn load(&self) -> Result<PersistedAutomationSettings, AutomationSettingsStoreError> {
-        read_json_or_default(&self.path).map_err(|message| AutomationSettingsStoreError::Store {
-            path: self.path.clone(),
-            message,
-        })
+        read_json_or_default(&self.path)
+            .map(|settings: PersistedAutomationSettings| settings.normalized())
+            .map_err(|message| AutomationSettingsStoreError::Store {
+                path: self.path.clone(),
+                message,
+            })
     }
 
     /// Saves automation settings to disk.
@@ -135,7 +158,7 @@ impl AutomationSettingsStore {
         &self,
         settings: &PersistedAutomationSettings,
     ) -> Result<(), AutomationSettingsStoreError> {
-        write_json_pretty(&self.path, settings).map_err(|message| {
+        write_json_pretty(&self.path, &settings.normalized()).map_err(|message| {
             AutomationSettingsStoreError::Store {
                 path: self.path.clone(),
                 message,

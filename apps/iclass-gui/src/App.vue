@@ -627,7 +627,7 @@ onBeforeUnmount(() => {
           </template>
 
           <template v-else-if="dashboard">
-            <ProfileSummary :dashboard="dashboard" />
+            <ProfileSummary :dashboard="dashboard" :automation-settings="automationSettings" />
             <ScheduleBoard
               :dashboard="dashboard"
               :weekly-schedule="weeklySchedule"

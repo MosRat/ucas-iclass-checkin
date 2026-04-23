@@ -72,14 +72,14 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
 
                 <label class="block rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
                   <span class="block text-sm font-semibold text-ink-900">轮询间隔</span>
-                  <span class="mt-1 block text-sm leading-6 text-ink-500">建议 15-60 秒，过短只会增加无效请求。</span>
+                  <span class="mt-1 block text-sm leading-6 text-ink-500">建议 30-90 秒。自动打卡只在应用运行期间生效，过短只会增加无效请求。</span>
                   <input
                     v-model.number="automationSettings.autoCheckIntervalSeconds"
                     :disabled="automationLoading"
                     class="field-input mt-3"
                     max="300"
-                    min="15"
-                    step="5"
+                    min="30"
+                    step="15"
                     type="number"
                   />
                 </label>

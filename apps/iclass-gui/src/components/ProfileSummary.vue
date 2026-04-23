@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { DashboardSnapshot } from "../lib/types";
+import type { AutomationSettings, DashboardSnapshot } from "../lib/types";
 
 const props = defineProps<{
   dashboard: DashboardSnapshot;
+  automationSettings: AutomationSettings;
 }>();
 
 const currentSemester = computed(
@@ -13,6 +14,28 @@ const currentSemester = computed(
 const pendingTotal = computed(() =>
   props.dashboard.courses.reduce((total, course) => total + (course.pending_checkins ?? 0), 0)
 );
+
+const automationStatus = computed(() => {
+  if (props.automationSettings.autoCheckInEnabled) {
+    const modeLabel =
+      props.automationSettings.autoCheckInMode === "auto"
+        ? "Auto"
+        : props.automationSettings.autoCheckInMode === "uuid"
+          ? "UUID"
+          : "ID";
+    return {
+      active: true,
+      label: "自动打卡运行中",
+      detail: `每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
+    };
+  }
+
+  return {
+    active: false,
+    label: "自动打卡已关闭",
+    detail: "需要时可在设置中开启后台轮询。"
+  };
+});
 </script>
 
 <template>
@@ -29,6 +52,21 @@ const pendingTotal = computed(() =>
             上次同步
             {{ new Date(props.dashboard.generated_at).toLocaleString("zh-CN", { hour12: false }) }}
           </p>
+          <div
+            class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:text-sm"
+            :class="
+              automationStatus.active
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 bg-white/80 text-ink-500'
+            "
+          >
+            <span
+              class="h-2 w-2 rounded-full"
+              :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
+            ></span>
+            <span>{{ automationStatus.label }}</span>
+            <span class="text-current/70">· {{ automationStatus.detail }}</span>
+          </div>
         </div>
         <div class="grid grid-cols-3 gap-2 sm:gap-3">
           <div class="metric-card">

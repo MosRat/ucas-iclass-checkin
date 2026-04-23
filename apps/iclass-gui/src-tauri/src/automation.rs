@@ -5,9 +5,10 @@ use std::time::Duration;
 use chrono::Local;
 use tracing::{debug, info, warn};
 
-use crate::{settings::PersistedAutomationSettings, state::AppState};
-
-const MIN_AUTO_CHECK_INTERVAL_SECONDS: u64 = 15;
+use crate::{
+    settings::{MIN_AUTO_CHECK_INTERVAL_SECONDS, PersistedAutomationSettings},
+    state::AppState,
+};
 
 /// Starts the background auto check-in loop for the current application process.
 pub(crate) fn spawn_auto_check_loop(state: AppState) {
@@ -25,9 +26,7 @@ pub(crate) fn spawn_auto_check_loop(state: AppState) {
                 run_auto_check_iteration(&state, settings).await;
             }
 
-            let sleep_seconds = settings
-                .auto_check_interval_seconds
-                .max(MIN_AUTO_CHECK_INTERVAL_SECONDS);
+            let sleep_seconds = settings.auto_check_interval_seconds;
             tokio::time::sleep(Duration::from_secs(sleep_seconds)).await;
         }
     });

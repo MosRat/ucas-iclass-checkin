@@ -18,7 +18,10 @@ use crate::{
         DesktopSettingsPayload, LoginRequest, UpdateAutomationSettingsRequest,
         UpdateDesktopSettingsRequest,
     },
-    settings::{PersistedAutomationSettings, PersistedDesktopSettings},
+    settings::{
+        MAX_AUTO_CHECK_INTERVAL_SECONDS, MIN_AUTO_CHECK_INTERVAL_SECONDS,
+        PersistedAutomationSettings, PersistedDesktopSettings,
+    },
     state::AppState,
 };
 
@@ -256,7 +259,10 @@ pub(crate) async fn update_automation_settings(
     let normalized = PersistedAutomationSettings {
         auto_check_in_enabled: request.auto_check_in_enabled,
         auto_check_in_mode: request.auto_check_in_mode,
-        auto_check_interval_seconds: request.auto_check_interval_seconds.clamp(15, 300),
+        auto_check_interval_seconds: request.auto_check_interval_seconds.clamp(
+            MIN_AUTO_CHECK_INTERVAL_SECONDS,
+            MAX_AUTO_CHECK_INTERVAL_SECONDS,
+        ),
     };
 
     state

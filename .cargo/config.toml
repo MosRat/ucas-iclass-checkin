@@ -1,0 +1,13 @@
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = ["-C", "target-feature=+crt-static"]
+
+# `mold` can speed up native Linux dev builds too, but it is left opt-in
+# because many environments do not have it installed.
+# Example:
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
