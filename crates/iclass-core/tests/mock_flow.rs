@@ -186,8 +186,7 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
 //                 .path("/app/course/stu_scan_sign.action")
 //                 .header("sessionId", "fresh-session")
 //                 .query_param("id", "user-1")
-//                 .query_param("timeTableId", "uuid-1")
-//                 .query_param("timestamp", "1234");
+//                 .query_param("timeTableId", "uuid-1");
 //             then.status(200)
 //                 .header("content-type", "application/json")
 //                 .body(
@@ -211,7 +210,6 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
 //                 .expect("valid fixture date")
 //                 .and_hms_opt(14, 0, 0)
 //                 .expect("valid fixture time"),
-//             1234,
 //         )
 //         .await?;
 
@@ -250,8 +248,7 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
 //                 .path("/app/course/stu_scan_sign.action")
 //                 .header("sessionId", "fresh-session")
 //                 .query_param("id", "user-1")
-//                 .query_param("timeTableId", "uuid-custom")
-//                 .query_param("timestamp", "5678");
+//                 .query_param("timeTableId", "uuid-custom");
 //             then.status(200)
 //                 .header("content-type", "application/json")
 //                 .body(
@@ -268,7 +265,7 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
 
 //     let core = build_core(&server, &temp_dir)?;
 //     let result = core
-//         .check_in_with_identifier("uuid-custom", CheckInMode::ByUuid, 5678)
+//         .check_in_with_identifier("uuid-custom", CheckInMode::ByUuid)
 //         .await?;
 
 //     assert_eq!(result.receipt.method, CheckInMethod::Uuid);
@@ -312,8 +309,7 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
 //                 .path("/app/course/stu_scan_sign.action")
 //                 .header("sessionId", "fresh-session")
 //                 .query_param("id", "user-1")
-//                 .query_param("courseSchedId", "1166475")
-//                 .query_param("timestamp", "2468");
+//                 .query_param("courseSchedId", "1166475");
 //             then.status(200)
 //                 .header("content-type", "application/json")
 //                 .body(
@@ -330,7 +326,7 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
 
 //     let core = build_core(&server, &temp_dir)?;
 //     let result = core
-//         .check_in_with_identifier("1166475", CheckInMode::ById, 2468)
+//         .check_in_with_identifier("1166475", CheckInMode::ById)
 //         .await?;
 
 //     assert_eq!(result.receipt.method, CheckInMethod::Id);

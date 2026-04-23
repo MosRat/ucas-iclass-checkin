@@ -96,7 +96,7 @@ async fn live_checkin_reports_qr_expired_when_enabled() -> Result<()> {
     let moment = date.and_hms_opt(12, 0, 0).expect("midday should be valid");
     let schedule = select_best_schedule(&schedules, moment).expect("non-empty schedules");
     let result = core
-        .check_in_for_schedule(schedule, CheckInMode::Auto, Local::now().timestamp())
+        .check_in_for_schedule(schedule, CheckInMode::Auto)
         .await;
 
     let error = result.expect_err("mock account should not complete live check-in");

@@ -211,9 +211,8 @@ impl IClassCore {
         &self,
         schedule: ScheduleEntry,
         mode: CheckInMode,
-        timestamp: i64,
     ) -> Result<CheckInAttempt, CoreError> {
-        self.check_in_for_schedule_at(schedule, mode, Local::now().naive_local(), timestamp)
+        self.check_in_for_schedule_at(schedule, mode, Local::now().naive_local())
             .await
     }
 
@@ -223,19 +222,16 @@ impl IClassCore {
         schedule: ScheduleEntry,
         mode: CheckInMode,
         moment: NaiveDateTime,
-        timestamp: i64,
     ) -> Result<CheckInAttempt, CoreError> {
         validate_check_in_window(&schedule, moment)?;
 
         let receipt = match mode {
             CheckInMode::Auto => {
                 if let Some(schedule_uuid) = schedule.schedule_uuid.as_deref() {
-                    self.session_client
-                        .check_in_by_uuid(schedule_uuid, timestamp)
-                        .await?
+                    self.session_client.check_in_by_uuid(schedule_uuid).await?
                 } else if schedule.supports_id_checkin() {
                     self.session_client
-                        .check_in_by_id(&schedule.schedule_id, timestamp)
+                        .check_in_by_id(&schedule.schedule_id)
                         .await?
                 } else {
                     return Err(CoreError::UnsupportedCheckInMode {
@@ -246,9 +242,7 @@ impl IClassCore {
             }
             CheckInMode::ByUuid => {
                 if let Some(schedule_uuid) = schedule.schedule_uuid.as_deref() {
-                    self.session_client
-                        .check_in_by_uuid(schedule_uuid, timestamp)
-                        .await?
+                    self.session_client.check_in_by_uuid(schedule_uuid).await?
                 } else {
                     return Err(CoreError::UnsupportedCheckInMode {
                         mode,
@@ -259,7 +253,7 @@ impl IClassCore {
             CheckInMode::ById => {
                 if schedule.supports_id_checkin() {
                     self.session_client
-                        .check_in_by_id(&schedule.schedule_id, timestamp)
+                        .check_in_by_id(&schedule.schedule_id)
                         .await?
                 } else {
                     return Err(CoreError::UnsupportedCheckInMode {
@@ -278,17 +272,15 @@ impl IClassCore {
         &self,
         moment: NaiveDateTime,
         mode: CheckInMode,
-        timestamp: i64,
     ) -> Result<CheckInAttempt, CoreError> {
         let schedule = self.best_schedule_for(moment).await?;
-        self.check_in_for_schedule_at(schedule, mode, moment, timestamp)
-            .await
+        self.check_in_for_schedule_at(schedule, mode, moment).await
     }
 
-    /// Convenience wrapper that checks in using the current local time and current Unix timestamp.
+    /// Convenience wrapper that checks in using the current local time.
     pub async fn check_in_now(&self, mode: CheckInMode) -> Result<CheckInAttempt, CoreError> {
         let now = Local::now().naive_local();
-        self.check_in_at(now, mode, Local::now().timestamp()).await
+        self.check_in_at(now, mode).await
     }
 
     /// Attempts attendance directly against a caller-supplied schedule ID or UUID.
@@ -298,21 +290,16 @@ impl IClassCore {
         &self,
         identifier: &str,
         mode: CheckInMode,
-        timestamp: i64,
     ) -> Result<CheckInAttempt, CoreError> {
         let now = Local::now().naive_local();
         let receipt = match mode {
             CheckInMode::Auto | CheckInMode::ByUuid => {
                 debug!(identifier, ?mode, "attempting custom uuid check-in");
-                self.session_client
-                    .check_in_by_uuid(identifier, timestamp)
-                    .await?
+                self.session_client.check_in_by_uuid(identifier).await?
             }
             CheckInMode::ById => {
                 debug!(identifier, ?mode, "attempting custom id check-in");
-                self.session_client
-                    .check_in_by_id(identifier, timestamp)
-                    .await?
+                self.session_client.check_in_by_id(identifier).await?
             }
         };
 

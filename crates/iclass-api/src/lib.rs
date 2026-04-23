@@ -5,19 +5,19 @@ use iclass_domain::{
     API_DATETIME_FORMAT, API_DAY_FORMAT, CheckInMethod, CheckInReceipt, Course, Credentials,
     ScheduleEntry, Semester, Session, UCAS_DEFAULT_BASE_URL, format_api_date,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use reqwest::{Client, Url, multipart};
 use serde::Deserialize;
 use thiserror::Error;
-use std::time::{SystemTime, UNIX_EPOCH};
 
-const TIME_SHIFT:u64 = 0;
-
-fn current_timestamp_ms() -> u64 {  
-    SystemTime::now()  
-        .duration_since(UNIX_EPOCH)  
-        .expect("system time before UNIX_EPOCH")  
-        .as_millis() as u64  // as_millis() 自Rust 1.33+  
-}  
+fn current_timestamp_ms() -> String {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before UNIX_EPOCH")
+        .as_millis()
+        .to_string()
+}
 
 /// Stable classification of low-level API failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -291,34 +291,30 @@ impl IClassApiClient {
     }
 
     /// Attempts attendance using the UUID-style `timeTableId` parameter.
-    #[allow(unused_variables)]
     pub async fn check_in_by_uuid(
         &self,
         session: &Session,
         schedule_uuid: &str,
-        timestamp: i64,
     ) -> Result<CheckInReceipt, ApiError> {
         let mut url = self.endpoint("/app/course/stu_scan_sign.action")?;
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("timeTableId", schedule_uuid)
-            .append_pair("timestamp", &(current_timestamp_ms() + TIME_SHIFT).to_string());
+            .append_pair("timestamp", &current_timestamp_ms());
         self.check_in(session, url, CheckInMethod::Uuid).await
     }
 
     /// Attempts attendance using the numeric `courseSchedId` parameter.
-    #[allow(unused_variables)]
     pub async fn check_in_by_id(
         &self,
         session: &Session,
         schedule_id: &str,
-        timestamp: i64,
     ) -> Result<CheckInReceipt, ApiError> {
         let mut url = self.endpoint("/app/course/stu_scan_sign.action")?;
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("courseSchedId", schedule_id)
-            .append_pair("timestamp", &(current_timestamp_ms() + TIME_SHIFT).to_string());
+            .append_pair("timestamp", &current_timestamp_ms());
         self.check_in(session, url, CheckInMethod::Id).await
     }
 

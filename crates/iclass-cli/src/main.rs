@@ -213,13 +213,8 @@ async fn run() -> Result<()> {
                     .expect("midday should always be valid");
                 let schedule = iclass_core::select_best_schedule(&schedules, moment)
                     .ok_or(CoreError::NoScheduleAvailable { date: target_date })?;
-                core.check_in_for_schedule_at(
-                    schedule,
-                    mode.into(),
-                    moment,
-                    Local::now().timestamp(),
-                )
-                .await?
+                core.check_in_for_schedule_at(schedule, mode.into(), moment)
+                    .await?
             };
 
             println!(

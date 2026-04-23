@@ -83,7 +83,6 @@ async fn run_auto_check_iteration(state: &AppState, settings: PersistedAutomatio
             schedule.clone(),
             settings.auto_check_in_mode.into(),
             now_local,
-            now_timestamp,
         )
         .await
     {

@@ -119,7 +119,6 @@ pub(crate) async fn check_in(
         .check_in_for_schedule(
             request.schedule,
             request.mode.unwrap_or(CheckInModePayload::Auto).into(),
-            Local::now().timestamp(),
         )
         .await
         .map(|attempt| CheckInViewModel {
@@ -153,11 +152,7 @@ pub(crate) async fn check_in_custom(
     );
     let result = state
         .core
-        .check_in_with_identifier(
-            request.identifier.trim(),
-            request.mode.into(),
-            Local::now().timestamp(),
-        )
+        .check_in_with_identifier(request.identifier.trim(), request.mode.into())
         .await
         .map_err(map_core_error)?;
     let duration_ms = elapsed_ms(started);
