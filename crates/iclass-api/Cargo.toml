@@ -9,9 +9,14 @@ workspace = true
 [dependencies]
 chrono.workspace = true
 iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
-reqwest.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 url = { workspace = true, features = ["serde"] }
+
+[target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
+reqwest = { workspace = true, default-features = false, features = ["charset", "http2", "json", "multipart", "native-tls"] }
+
+[target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
+reqwest = { workspace = true, default-features = false, features = ["charset", "http2", "json", "multipart", "rustls-tls"] }
