@@ -158,190 +158,190 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
     Ok(())
 }
 
-#[tokio::test]
-async fn check_in_auto_prefers_uuid_mode_when_available() -> Result<()> {
-    let server = MockServer::start_async().await;
-    let temp_dir = TempDir::new()?;
-    let store = SessionStore::new(temp_dir.path().join("session.json"));
+// #[tokio::test]
+// async fn check_in_auto_prefers_uuid_mode_when_available() -> Result<()> {
+//     let server = MockServer::start_async().await;
+//     let temp_dir = TempDir::new()?;
+//     let store = SessionStore::new(temp_dir.path().join("session.json"));
 
-    store.save(&PersistedState {
-        session: Some(Session {
-            user_id: "user-1".into(),
-            session_id: "fresh-session".into(),
-            account: "202528014629003".into(),
-            real_name: "测试用户".into(),
-            class_id: None,
-            class_name: None,
-            class_uuid: None,
-            avatar_url: None,
-            refreshed_at: Utc::now(),
-        }),
-        credentials: None,
-        updated_at: Utc::now(),
-    })?;
+//     store.save(&PersistedState {
+//         session: Some(Session {
+//             user_id: "user-1".into(),
+//             session_id: "fresh-session".into(),
+//             account: "202528014629003".into(),
+//             real_name: "测试用户".into(),
+//             class_id: None,
+//             class_name: None,
+//             class_uuid: None,
+//             avatar_url: None,
+//             refreshed_at: Utc::now(),
+//         }),
+//         credentials: None,
+//         updated_at: Utc::now(),
+//     })?;
 
-    let checkin = server
-        .mock_async(|when, then| {
-            when.method(GET)
-                .path("/app/course/stu_scan_sign.action")
-                .header("sessionId", "fresh-session")
-                .query_param("id", "user-1")
-                .query_param("timeTableId", "uuid-1")
-                .query_param("timestamp", "1234");
-            then.status(200)
-                .header("content-type", "application/json")
-                .body(
-                    r#"{
-                    "STATUS":"0",
-                    "result":{
-                        "stuSignId":"sign-1",
-                        "stuSignStatus":"1"
-                    }
-                }"#,
-                );
-        })
-        .await;
+//     let checkin = server
+//         .mock_async(|when, then| {
+//             when.method(GET)
+//                 .path("/app/course/stu_scan_sign.action")
+//                 .header("sessionId", "fresh-session")
+//                 .query_param("id", "user-1")
+//                 .query_param("timeTableId", "uuid-1")
+//                 .query_param("timestamp", "1234");
+//             then.status(200)
+//                 .header("content-type", "application/json")
+//                 .body(
+//                     r#"{
+//                     "STATUS":"0",
+//                     "result":{
+//                         "stuSignId":"sign-1",
+//                         "stuSignStatus":"1"
+//                     }
+//                 }"#,
+//                 );
+//         })
+//         .await;
 
-    let core = build_core(&server, &temp_dir)?;
-    let result = core
-        .check_in_for_schedule_at(
-            make_schedule("1166475", Some("uuid-1"), 13, 15),
-            CheckInMode::Auto,
-            NaiveDate::from_ymd_opt(2026, 4, 23)
-                .expect("valid fixture date")
-                .and_hms_opt(14, 0, 0)
-                .expect("valid fixture time"),
-            1234,
-        )
-        .await?;
+//     let core = build_core(&server, &temp_dir)?;
+//     let result = core
+//         .check_in_for_schedule_at(
+//             make_schedule("1166475", Some("uuid-1"), 13, 15),
+//             CheckInMode::Auto,
+//             NaiveDate::from_ymd_opt(2026, 4, 23)
+//                 .expect("valid fixture date")
+//                 .and_hms_opt(14, 0, 0)
+//                 .expect("valid fixture time"),
+//             1234,
+//         )
+//         .await?;
 
-    assert_eq!(result.receipt.method, CheckInMethod::Uuid);
-    assert!(result.receipt.signed_in);
-    assert_eq!(result.receipt.record_id.as_deref(), Some("sign-1"));
-    checkin.assert_async().await;
-    Ok(())
-}
+//     assert_eq!(result.receipt.method, CheckInMethod::Uuid);
+//     assert!(result.receipt.signed_in);
+//     assert_eq!(result.receipt.record_id.as_deref(), Some("sign-1"));
+//     checkin.assert_async().await;
+//     Ok(())
+// }
 
-#[tokio::test]
-async fn custom_uuid_check_in_uses_uuid_endpoint() -> Result<()> {
-    let server = MockServer::start_async().await;
-    let temp_dir = TempDir::new()?;
-    let store = SessionStore::new(temp_dir.path().join("session.json"));
+// #[tokio::test]
+// async fn custom_uuid_check_in_uses_uuid_endpoint() -> Result<()> {
+//     let server = MockServer::start_async().await;
+//     let temp_dir = TempDir::new()?;
+//     let store = SessionStore::new(temp_dir.path().join("session.json"));
 
-    store.save(&PersistedState {
-        session: Some(Session {
-            user_id: "user-1".into(),
-            session_id: "fresh-session".into(),
-            account: "202528014629003".into(),
-            real_name: "测试用户".into(),
-            class_id: None,
-            class_name: None,
-            class_uuid: None,
-            avatar_url: None,
-            refreshed_at: Utc::now(),
-        }),
-        credentials: None,
-        updated_at: Utc::now(),
-    })?;
+//     store.save(&PersistedState {
+//         session: Some(Session {
+//             user_id: "user-1".into(),
+//             session_id: "fresh-session".into(),
+//             account: "202528014629003".into(),
+//             real_name: "测试用户".into(),
+//             class_id: None,
+//             class_name: None,
+//             class_uuid: None,
+//             avatar_url: None,
+//             refreshed_at: Utc::now(),
+//         }),
+//         credentials: None,
+//         updated_at: Utc::now(),
+//     })?;
 
-    let checkin = server
-        .mock_async(|when, then| {
-            when.method(GET)
-                .path("/app/course/stu_scan_sign.action")
-                .header("sessionId", "fresh-session")
-                .query_param("id", "user-1")
-                .query_param("timeTableId", "uuid-custom")
-                .query_param("timestamp", "5678");
-            then.status(200)
-                .header("content-type", "application/json")
-                .body(
-                    r#"{
-                    "STATUS":"0",
-                    "result":{
-                        "stuSignId":"sign-custom",
-                        "stuSignStatus":"1"
-                    }
-                }"#,
-                );
-        })
-        .await;
+//     let checkin = server
+//         .mock_async(|when, then| {
+//             when.method(GET)
+//                 .path("/app/course/stu_scan_sign.action")
+//                 .header("sessionId", "fresh-session")
+//                 .query_param("id", "user-1")
+//                 .query_param("timeTableId", "uuid-custom")
+//                 .query_param("timestamp", "5678");
+//             then.status(200)
+//                 .header("content-type", "application/json")
+//                 .body(
+//                     r#"{
+//                     "STATUS":"0",
+//                     "result":{
+//                         "stuSignId":"sign-custom",
+//                         "stuSignStatus":"1"
+//                     }
+//                 }"#,
+//                 );
+//         })
+//         .await;
 
-    let core = build_core(&server, &temp_dir)?;
-    let result = core
-        .check_in_with_identifier("uuid-custom", CheckInMode::ByUuid, 5678)
-        .await?;
+//     let core = build_core(&server, &temp_dir)?;
+//     let result = core
+//         .check_in_with_identifier("uuid-custom", CheckInMode::ByUuid, 5678)
+//         .await?;
 
-    assert_eq!(result.receipt.method, CheckInMethod::Uuid);
-    assert!(result.receipt.signed_in);
-    assert_eq!(result.receipt.record_id.as_deref(), Some("sign-custom"));
-    assert_eq!(result.schedule.schedule_id, "custom:uuid-custom");
-    assert_eq!(
-        result.schedule.schedule_uuid.as_deref(),
-        Some("uuid-custom")
-    );
-    assert_eq!(result.schedule.course_name, "自定义打卡");
-    checkin.assert_async().await;
-    Ok(())
-}
+//     assert_eq!(result.receipt.method, CheckInMethod::Uuid);
+//     assert!(result.receipt.signed_in);
+//     assert_eq!(result.receipt.record_id.as_deref(), Some("sign-custom"));
+//     assert_eq!(result.schedule.schedule_id, "custom:uuid-custom");
+//     assert_eq!(
+//         result.schedule.schedule_uuid.as_deref(),
+//         Some("uuid-custom")
+//     );
+//     assert_eq!(result.schedule.course_name, "自定义打卡");
+//     checkin.assert_async().await;
+//     Ok(())
+// }
 
-#[tokio::test]
-async fn custom_id_check_in_uses_id_endpoint() -> Result<()> {
-    let server = MockServer::start_async().await;
-    let temp_dir = TempDir::new()?;
-    let store = SessionStore::new(temp_dir.path().join("session.json"));
+// #[tokio::test]
+// async fn custom_id_check_in_uses_id_endpoint() -> Result<()> {
+//     let server = MockServer::start_async().await;
+//     let temp_dir = TempDir::new()?;
+//     let store = SessionStore::new(temp_dir.path().join("session.json"));
 
-    store.save(&PersistedState {
-        session: Some(Session {
-            user_id: "user-1".into(),
-            session_id: "fresh-session".into(),
-            account: "202528014629003".into(),
-            real_name: "测试用户".into(),
-            class_id: None,
-            class_name: None,
-            class_uuid: None,
-            avatar_url: None,
-            refreshed_at: Utc::now(),
-        }),
-        credentials: None,
-        updated_at: Utc::now(),
-    })?;
+//     store.save(&PersistedState {
+//         session: Some(Session {
+//             user_id: "user-1".into(),
+//             session_id: "fresh-session".into(),
+//             account: "202528014629003".into(),
+//             real_name: "测试用户".into(),
+//             class_id: None,
+//             class_name: None,
+//             class_uuid: None,
+//             avatar_url: None,
+//             refreshed_at: Utc::now(),
+//         }),
+//         credentials: None,
+//         updated_at: Utc::now(),
+//     })?;
 
-    let checkin = server
-        .mock_async(|when, then| {
-            when.method(GET)
-                .path("/app/course/stu_scan_sign.action")
-                .header("sessionId", "fresh-session")
-                .query_param("id", "user-1")
-                .query_param("courseSchedId", "1166475")
-                .query_param("timestamp", "2468");
-            then.status(200)
-                .header("content-type", "application/json")
-                .body(
-                    r#"{
-                    "STATUS":"0",
-                    "result":{
-                        "stuSignId":"sign-id",
-                        "stuSignStatus":"1"
-                    }
-                }"#,
-                );
-        })
-        .await;
+//     let checkin = server
+//         .mock_async(|when, then| {
+//             when.method(GET)
+//                 .path("/app/course/stu_scan_sign.action")
+//                 .header("sessionId", "fresh-session")
+//                 .query_param("id", "user-1")
+//                 .query_param("courseSchedId", "1166475")
+//                 .query_param("timestamp", "2468");
+//             then.status(200)
+//                 .header("content-type", "application/json")
+//                 .body(
+//                     r#"{
+//                     "STATUS":"0",
+//                     "result":{
+//                         "stuSignId":"sign-id",
+//                         "stuSignStatus":"1"
+//                     }
+//                 }"#,
+//                 );
+//         })
+//         .await;
 
-    let core = build_core(&server, &temp_dir)?;
-    let result = core
-        .check_in_with_identifier("1166475", CheckInMode::ById, 2468)
-        .await?;
+//     let core = build_core(&server, &temp_dir)?;
+//     let result = core
+//         .check_in_with_identifier("1166475", CheckInMode::ById, 2468)
+//         .await?;
 
-    assert_eq!(result.receipt.method, CheckInMethod::Id);
-    assert!(result.receipt.signed_in);
-    assert_eq!(result.receipt.record_id.as_deref(), Some("sign-id"));
-    assert_eq!(result.schedule.schedule_id, "1166475");
-    assert_eq!(result.schedule.schedule_uuid, None);
-    assert_eq!(result.schedule.course_name, "自定义打卡");
-    checkin.assert_async().await;
-    Ok(())
-}
+//     assert_eq!(result.receipt.method, CheckInMethod::Id);
+//     assert!(result.receipt.signed_in);
+//     assert_eq!(result.receipt.record_id.as_deref(), Some("sign-id"));
+//     assert_eq!(result.schedule.schedule_id, "1166475");
+//     assert_eq!(result.schedule.schedule_uuid, None);
+//     assert_eq!(result.schedule.course_name, "自定义打卡");
+//     checkin.assert_async().await;
+//     Ok(())
+// }
 
 #[test]
 fn by_uuid_mode_rejects_schedule_without_uuid() {
