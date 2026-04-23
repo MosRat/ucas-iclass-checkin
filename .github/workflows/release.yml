@@ -22,13 +22,13 @@ jobs:
             artifact_name: desktop-macos-bundles
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           version: 10.32.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -82,7 +82,7 @@ jobs:
           esac
 
       - name: upload desktop bundles
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: release-staging/desktop/*
@@ -93,13 +93,13 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/app-v')
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           version: 10.32.1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -114,12 +114,12 @@ jobs:
       - name: install tauri cli
         run: cargo install tauri-cli --locked --version 2.10.1
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: install frontend dependencies
         working-directory: apps/iclass-gui
@@ -156,7 +156,7 @@ jobs:
           cp apps/iclass-gui/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab "$stage/ucas-iclass-checkin_${version}_android_universal.aab"
 
       - name: upload android artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-release-artifacts
           path: release-staging/android/*
@@ -173,31 +173,31 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: download desktop linux bundles
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: desktop-linux-bundles
           path: release-assets/linux
 
       - name: download desktop windows bundles
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: desktop-windows-bundles
           path: release-assets/windows
 
       - name: download desktop macos bundles
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: desktop-macos-bundles
           path: release-assets/macos
 
       - name: download android bundles
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: android-release-artifacts
           path: release-assets/android
 
       - name: attach artifacts to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true
           files: release-assets/**/*
