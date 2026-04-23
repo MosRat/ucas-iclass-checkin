@@ -1,5 +1,5 @@
 //! Deterministic mock-backed integration tests for core schedule and check-in flows.
-
+#![allow(unused_imports)]
 use anyhow::Result;
 use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use httpmock::prelude::*;
