@@ -192,6 +192,43 @@ function isAuthError(error: GuiErrorPayload) {
   );
 }
 
+function pickAutoOpenSchedule(cards: ScheduleCard[], now = new Date()) {
+  const candidates = cards.filter((card) => card.can_check_in);
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return [...candidates].sort((left, right) => {
+    const leftBeginsAt = new Date(left.schedule.begins_at).getTime();
+    const leftEndsAt = new Date(left.schedule.ends_at).getTime();
+    const rightBeginsAt = new Date(right.schedule.begins_at).getTime();
+    const rightEndsAt = new Date(right.schedule.ends_at).getTime();
+    const nowMs = now.getTime();
+
+    const leftIsActive = leftBeginsAt <= nowMs && nowMs <= leftEndsAt;
+    const rightIsActive = rightBeginsAt <= nowMs && nowMs <= rightEndsAt;
+
+    if (leftIsActive !== rightIsActive) {
+      return leftIsActive ? -1 : 1;
+    }
+
+    if (leftIsActive && rightIsActive) {
+      if (leftBeginsAt !== rightBeginsAt) {
+        return leftBeginsAt - rightBeginsAt;
+      }
+      return leftEndsAt - rightEndsAt;
+    }
+
+    const leftDistanceToStart = Math.abs(leftBeginsAt - nowMs);
+    const rightDistanceToStart = Math.abs(rightBeginsAt - nowMs);
+    if (leftDistanceToStart !== rightDistanceToStart) {
+      return leftDistanceToStart - rightDistanceToStart;
+    }
+
+    return leftBeginsAt - rightBeginsAt;
+  })[0] ?? null;
+}
+
 function syncDashboardState(next: DashboardSnapshot) {
   dashboard.value = next;
   selectedDate.value = next.schedule_date;
@@ -199,7 +236,7 @@ function syncDashboardState(next: DashboardSnapshot) {
   const preserved =
     selectedCard.value &&
     next.schedules.find((card) => card.schedule.schedule_id === selectedCard.value?.schedule.schedule_id);
-  const autoCheckable = next.schedules.find((card) => card.can_check_in) ?? null;
+  const autoCheckable = pickAutoOpenSchedule(next.schedules);
   selectedCard.value =
     preserved ??
     (preferences.autoOpenCheckableSchedule
