@@ -103,13 +103,15 @@ jobs:
       - name: restore android signing materials
         working-directory: apps/iclass-gui/src-tauri/gen/android
         shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/iclass-release.jks
-          cat > keystore.properties <<'EOF'
-          storeFile=${PWD}/app/iclass-release.jks
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          EOF
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/iclass-release.jks
+          printf 'storeFile=%s\n' "${PWD}/app/iclass-release.jks" > keystore.properties
+          printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS" >> keystore.properties
+          printf 'password=%s\n' "$ANDROID_KEYSTORE_PASSWORD" >> keystore.properties
 
       - name: build android artifacts
         working-directory: apps/iclass-gui

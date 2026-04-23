@@ -7,11 +7,11 @@ use iclass_gui::GuiErrorPayload;
     any(target_os = "macos", target_os = "linux", windows)
 ))]
 use iclass_gui::GuiErrorCode;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tracing::warn;
 
 #[cfg(desktop)]
-use tauri::{Manager, WebviewWindow, WindowEvent};
+use tauri::{Emitter, Manager, WebviewWindow, WindowEvent};
 
 #[cfg(all(desktop, feature = "desktop-tray"))]
 use tauri::{
