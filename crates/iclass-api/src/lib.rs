@@ -9,6 +9,8 @@ use reqwest::{Client, Url, multipart};
 use serde::Deserialize;
 use thiserror::Error;
 
+const TIME_SHIFT:i64 = 30000;
+
 /// Stable classification of low-level API failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApiErrorKind {
@@ -291,7 +293,7 @@ impl IClassApiClient {
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("timeTableId", schedule_uuid)
-            .append_pair("timestamp", &timestamp.to_string());
+            .append_pair("timestamp", &(timestamp + TIME_SHIFT).to_string());
         self.check_in(session, url, CheckInMethod::Uuid).await
     }
 
@@ -306,7 +308,7 @@ impl IClassApiClient {
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("courseSchedId", schedule_id)
-            .append_pair("timestamp", &timestamp.to_string());
+            .append_pair("timestamp", &(timestamp + TIME_SHIFT).to_string());
         self.check_in(session, url, CheckInMethod::Id).await
     }
 
