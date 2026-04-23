@@ -4,3 +4,4 @@
 !/.env.example
 *.local.toml
 docs/api/UCAS-iCLASS.agent-bundle.*
+docs/api/UCAS-iCLASS.agent-runtime-model.md

@@ -1,0 +1,192 @@
+# UCAS iCLASS API Notes
+
+This document summarizes the small subset of UCAS iCLASS HTTP behavior used by this project. It is intended for maintainers who need to understand the client implementation, not as a stable public API contract.
+
+## Base URL
+
+The default service base URL is:
+
+```text
+https://iclass.ucas.edu.cn:8181
+```
+
+Requests currently use multipart form bodies for login and query endpoints. Authenticated requests send the session token in the `sessionId` header.
+
+## Response Envelope
+
+Most endpoints return a shared envelope:
+
+```json
+{
+  "STATUS": "0",
+  "result": {}
+}
+```
+
+For failures:
+
+```json
+{
+  "STATUS": "1",
+  "ERRCODE": "101",
+  "ERRMSG": "二维码已失效！"
+}
+```
+
+Known business codes handled by the client:
+
+| Code | Meaning |
+| --- | --- |
+| `0` / `STATUS == "0"` | Success. |
+| `2` | Empty schedule collection. The client normalizes this to an empty list for schedule queries. |
+| `101` | Check-in QR code is expired, invalid, or outside the valid time window. |
+| `107` | Invalid password observed on login. |
+
+Other nonzero responses should be surfaced with both `ERRCODE` and `ERRMSG`.
+
+## Authentication
+
+### `POST /app/user/login.action`
+
+Form fields:
+
+| Field | Description |
+| --- | --- |
+| `phone` | Student account. |
+| `password` | Password. |
+
+Useful response fields:
+
+| Field | Description |
+| --- | --- |
+| `result.id` | User ID used by later requests. |
+| `result.sessionId` | Session token sent as the `sessionId` header. |
+| `result.userName` | Login account name. |
+| `result.realName` / `result.nickName` | Display name. |
+| `result.classId`, `result.classInfoName`, `result.classUUID` | Optional class metadata. |
+| `result.picUrl` | Optional avatar URL. |
+
+## Semesters
+
+### `POST /app/course/get_base_school_year.action`
+
+Form fields:
+
+| Field | Description |
+| --- | --- |
+| `userId` | User ID from login. |
+
+Useful response fields:
+
+| Field | Description |
+| --- | --- |
+| `code` | Semester code. |
+| `name` | Semester name. |
+| `beginDate`, `endDate` | Date range, formatted as `YYYY-MM-DD`. |
+| `yearStatus` | `1` means current semester. |
+
+## Courses
+
+### `POST /app/my/get_my_course.action`
+
+Headers:
+
+| Header | Description |
+| --- | --- |
+| `sessionId` | Session token from login. |
+
+Form fields:
+
+| Field | Description |
+| --- | --- |
+| `id` | User ID from login. |
+
+Useful response fields:
+
+| Field | Description |
+| --- | --- |
+| `id` | Course ID. |
+| `courseName` | Course display name. |
+| `courseNum` | Optional catalog number. |
+| `teacherName` | Optional teacher name. |
+| `classroomName` | Optional classroom. |
+| `beginDate`, `endDate` | Optional date range, usually formatted as `YYYYMMDD`. |
+| `myNoSignNum` | Optional pending check-in count. |
+
+## Schedules
+
+### `POST /app/course/get_stu_course_sched.action`
+
+Fetches schedule rows for one day.
+
+### `POST /app/course/get_stu_course_sched_week.action`
+
+Fetches a weekly schedule view anchored at the provided date. The client flattens the weekly response into schedule rows.
+
+Headers:
+
+| Header | Description |
+| --- | --- |
+| `sessionId` | Session token from login. |
+
+Form fields:
+
+| Field | Description |
+| --- | --- |
+| `id` | User ID from login. |
+| `dateStr` | Date formatted as `YYYYMMDD`. |
+
+Useful schedule fields:
+
+| Field | Description |
+| --- | --- |
+| `id` | Numeric schedule ID. Used by ID-based check-in. |
+| `uuid` | UUID-style schedule ID. Used by UUID-based check-in. |
+| `courseId` | Optional course ID. |
+| `courseName` | Course display name. |
+| `teacherName` | Optional teacher name. |
+| `classroomName` | Optional classroom. |
+| `teachTime` | Teaching day, formatted as `YYYY-MM-DD`. |
+| `classBeginTime`, `classEndTime` | Local datetime fields, formatted as `YYYY-MM-DD HH:MM:SS`. |
+| `signStatus` | Raw attendance status string. |
+
+The project normalizes repeated fixed-period rows into a single logical lesson when the course name and time range match.
+
+## Check-In
+
+Both check-in modes use the same endpoint.
+
+### `GET /app/course/stu_scan_sign.action`
+
+Headers:
+
+| Header | Description |
+| --- | --- |
+| `sessionId` | Session token from login. |
+
+Common query parameters:
+
+| Parameter | Description |
+| --- | --- |
+| `id` | User ID from login. |
+| `timestamp` | Client timestamp in milliseconds or the value expected by the upstream service. |
+
+Mode-specific query parameters:
+
+| Mode | Parameter |
+| --- | --- |
+| UUID mode | `timeTableId=<schedule.uuid>` |
+| ID mode | `courseSchedId=<schedule.id>` |
+
+Useful success fields:
+
+| Field | Description |
+| --- | --- |
+| `result.stuSignId` | Optional upstream attendance record ID. |
+| `result.stuSignStatus` | `1` has been observed for signed-in status. |
+
+## Implementation Notes
+
+The Rust client intentionally keeps only fields required by the CLI, GUI, session refresh, and check-in flows. Do not mirror entire upstream payloads unless a field is actively needed by a user-facing feature or a test.
+
+Schedule and semester payloads may contain stale or inconsistent display metadata. Prefer explicit date and time fields for logic.
