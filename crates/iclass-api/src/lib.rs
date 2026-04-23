@@ -10,7 +10,7 @@ use serde::Deserialize;
 use thiserror::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const TIME_SHIFT:u64 = 30000;
+const TIME_SHIFT:u64 = 0;
 
 fn current_timestamp_ms() -> u64 {  
     SystemTime::now()  
