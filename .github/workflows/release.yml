@@ -165,7 +165,11 @@ jobs:
         with:
           draft: true
           files: |
-            release-assets/linux/**/*
-            release-assets/windows/**/*
-            release-assets/macos/**/*
-            release-assets/android/**/*
+            release-assets/linux/**/*.AppImage
+            release-assets/linux/**/*.deb
+            release-assets/linux/**/*.rpm
+            release-assets/windows/**/*.exe
+            release-assets/windows/**/*.msi
+            release-assets/macos/**/*.dmg
+            release-assets/android/**/*.apk
+            release-assets/android/**/*.aab
