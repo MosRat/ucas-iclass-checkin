@@ -17,6 +17,7 @@ export interface GuiErrorPayload {
   code: GuiErrorCode;
   message: string;
   retryable: boolean;
+  debug_details?: string | null;
 }
 
 export interface ProfilePhase {

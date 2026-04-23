@@ -10,5 +10,6 @@ workspace = true
 chrono.workspace = true
 iclass-core = { version = "0.1.0", path = "../iclass-core" }
 iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
+iclass-session = { version = "0.1.0", path = "../iclass-session" }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true

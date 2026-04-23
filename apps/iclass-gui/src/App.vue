@@ -89,7 +89,8 @@ const dialog = reactive({
   title: "",
   message: "",
   tone: "error" as "error" | "success" | "info",
-  actionLabel: ""
+  actionLabel: "",
+  debugDetails: ""
 });
 
 const showLogin = computed(() => dashboard.value === null);
@@ -126,18 +127,38 @@ function openDialog(
   title: string,
   message: string,
   tone: "error" | "success" | "info" = "error",
-  actionLabel = ""
+  actionLabel = "",
+  debugDetails = ""
 ) {
   dialog.open = true;
   dialog.title = title;
   dialog.message = message;
   dialog.tone = tone;
   dialog.actionLabel = actionLabel;
+  dialog.debugDetails = debugDetails;
 }
 
 function closeDialog() {
   dialog.open = false;
   dialog.actionLabel = "";
+  dialog.debugDetails = "";
+}
+
+function buildDebugDetails(payload: GuiErrorPayload, context: string) {
+  const lines = [
+    `context=${context}`,
+    `code=${payload.code}`,
+    `retryable=${payload.retryable}`,
+    `message=${payload.message}`
+  ];
+  if (payload.debug_details?.trim()) {
+    lines.push("", payload.debug_details);
+  }
+  return lines.join("\n");
+}
+
+function openErrorDialog(title: string, payload: GuiErrorPayload, actionLabel = "", context = "gui") {
+  openDialog(title, payload.message, "error", actionLabel, buildDebugDetails(payload, context));
 }
 
 function runDialogAction() {
@@ -239,12 +260,12 @@ async function refreshDashboard(date = selectedDate.value) {
         statusMessage.value = "自动恢复失败，请重新登录。";
         statusTone.value = "error";
         if (payload.code === "InvalidCredentials") {
-          openDialog("登录失败", payload.message);
+          openErrorDialog("登录失败", payload, "", "dashboard.auto_restore");
         }
       } else {
         statusMessage.value = payload.message;
         statusTone.value = "error";
-        openDialog("同步失败", payload.message, "error", payload.retryable ? "重新同步" : "");
+        openErrorDialog("同步失败", payload, payload.retryable ? "重新同步" : "", "dashboard.refresh");
       }
     } finally {
       if (dashboardRefreshDate === date) {
@@ -318,7 +339,12 @@ async function submitLogin(request: LoginRequest) {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
     statusTone.value = "error";
-    openDialog(payload.code === "InvalidCredentials" ? "账号或密码错误" : "登录失败", payload.message);
+    openErrorDialog(
+      payload.code === "InvalidCredentials" ? "账号或密码错误" : "登录失败",
+      payload,
+      "",
+      "login.submit"
+    );
   } finally {
     loginLoading.value = false;
   }
@@ -346,7 +372,7 @@ async function performCheckIn(card: ScheduleCard) {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
     statusTone.value = "error";
-    openDialog("打卡失败", payload.message, "error", payload.retryable ? "重新同步" : "");
+    openErrorDialog("打卡失败", payload, payload.retryable ? "重新同步" : "", "check_in.schedule");
   } finally {
     submittingCheckIn.value = false;
   }
@@ -370,7 +396,7 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
     statusTone.value = "error";
-    openDialog("自定义打卡失败", payload.message, "error");
+    openErrorDialog("自定义打卡失败", payload, "", "check_in.custom");
   } finally {
     submittingCheckIn.value = false;
   }
@@ -449,7 +475,15 @@ async function persistDesktopSettings(): Promise<boolean> {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
     statusTone.value = "error";
-    openDialog("更新设置失败", `未能保存桌面设置。\n\n${payload.message}`, "error");
+    openErrorDialog(
+      "更新设置失败",
+      {
+        ...payload,
+        message: `未能保存桌面设置。\n\n${payload.message}`
+      },
+      "",
+      "settings.desktop"
+    );
     return false;
   } finally {
     desktopSettingsLoading.value = false;
@@ -486,7 +520,7 @@ async function persistAutomationSettings(): Promise<boolean> {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
     statusTone.value = "error";
-    openDialog("更新自动打卡设置失败", payload.message, "error");
+    openErrorDialog("更新自动打卡设置失败", payload, "", "settings.automation");
     return false;
   } finally {
     automationSettingsLoading.value = false;
@@ -660,11 +694,12 @@ onBeforeUnmount(() => {
       @close="closeScheduleDetail"
     />
 
-    <ErrorDialog
-      :action-label="dialog.actionLabel"
-      :message="dialog.message"
-      :open="dialog.open"
-      :title="dialog.title"
+      <ErrorDialog
+        :action-label="dialog.actionLabel"
+        :debug-details="dialog.debugDetails"
+        :message="dialog.message"
+        :open="dialog.open"
+        :title="dialog.title"
       :tone="dialog.tone"
       @action="runDialogAction"
       @close="closeDialog"

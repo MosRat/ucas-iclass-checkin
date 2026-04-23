@@ -74,6 +74,7 @@ impl GuiBridgeError {
                         code,
                         GuiErrorCode::AuthenticationRequired | GuiErrorCode::Network
                     ),
+                    debug_details: Some(format_core_debug_details(error)),
                 }
             }
         }
@@ -89,6 +90,8 @@ pub struct GuiErrorPayload {
     pub message: String,
     /// Whether the user may reasonably retry the operation.
     pub retryable: bool,
+    /// Optional detailed text intended for copying into bug reports or debug logs.
+    pub debug_details: Option<String>,
 }
 
 impl GuiErrorPayload {
@@ -98,8 +101,80 @@ impl GuiErrorPayload {
             code,
             message: message.into(),
             retryable,
+            debug_details: None,
         }
     }
+
+    /// Attaches developer-facing debug details to the payload.
+    pub fn with_debug_details(mut self, debug_details: impl Into<String>) -> Self {
+        self.debug_details = Some(debug_details.into());
+        self
+    }
+}
+
+fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
+    let mut lines = vec![
+        "layer=core".to_string(),
+        format!("kind={:?}", error.kind()),
+        format!("display={error}"),
+        format!("debug={error:?}"),
+    ];
+
+    match error {
+        iclass_core::CoreError::Session(session_error) => {
+            lines.push(format!("session.kind={:?}", session_error.kind()));
+            lines.push(format!("session.display={session_error}"));
+            lines.push(format!("session.debug={session_error:?}"));
+
+            match session_error {
+                iclass_session::SessionError::Api(api_error) => {
+                    lines.push(format!("api.kind={:?}", api_error.kind()));
+                    lines.push(format!("api.display={api_error}"));
+                    lines.push(format!("api.debug={api_error:?}"));
+                    if let Some(code) = api_error.business_code() {
+                        lines.push(format!("api.business_code={code}"));
+                    }
+                    if let Some(message) = api_error.business_message() {
+                        lines.push(format!("api.business_message={message}"));
+                    }
+                }
+                iclass_session::SessionError::Store { path, message } => {
+                    lines.push(format!("store.path={}", path.display()));
+                    lines.push(format!("store.message={message}"));
+                }
+                iclass_session::SessionError::MissingCredentials => {
+                    lines.push("session.missing_credentials=true".to_string());
+                }
+            }
+        }
+        iclass_core::CoreError::NoScheduleAvailable { date } => {
+            lines.push(format!("schedule.date={date}"));
+        }
+        iclass_core::CoreError::UnsupportedCheckInMode { mode, schedule_id } => {
+            lines.push(format!("schedule.id={schedule_id}"));
+            lines.push(format!("checkin.mode={mode:?}"));
+        }
+        iclass_core::CoreError::CheckInNotOpenYet {
+            schedule_id,
+            course_name,
+            opens_at,
+        } => {
+            lines.push(format!("schedule.id={schedule_id}"));
+            lines.push(format!("schedule.course={course_name}"));
+            lines.push(format!("checkin.opens_at={opens_at}"));
+        }
+        iclass_core::CoreError::CheckInClosed {
+            schedule_id,
+            course_name,
+            ended_at,
+        } => {
+            lines.push(format!("schedule.id={schedule_id}"));
+            lines.push(format!("schedule.course={course_name}"));
+            lines.push(format!("checkin.ended_at={ended_at}"));
+        }
+    }
+
+    lines.join("\n")
 }
 
 /// Minimal session information typically shown in a GUI shell.

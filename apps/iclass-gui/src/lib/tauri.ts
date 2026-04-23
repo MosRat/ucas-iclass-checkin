@@ -23,7 +23,8 @@ function normalizeError(error: unknown): GuiErrorPayload {
       return {
         code: "Business",
         message: error,
-        retryable: false
+        retryable: false,
+        debug_details: error
       };
     }
   }
@@ -44,7 +45,8 @@ function normalizeError(error: unknown): GuiErrorPayload {
         return {
           code: "Business",
           message: candidate,
-          retryable: false
+          retryable: false,
+          debug_details: JSON.stringify(error, null, 2)
         };
       }
     }
@@ -53,7 +55,8 @@ function normalizeError(error: unknown): GuiErrorPayload {
   return {
     code: "Business",
     message: error instanceof Error ? error.message : "发生了未知错误。",
-    retryable: false
+    retryable: false,
+    debug_details: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
   };
 }
 
