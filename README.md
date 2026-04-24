@@ -7,7 +7,7 @@
   <img src="docs/assets/project-mark.svg" alt="UCAS iCLASS mark" width="104">
 </p>
 
-# UCAS iCLASS Workspace
+# UCAS iCLASS 
 
 ## Requirements
 
