@@ -13,13 +13,19 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use reqwest::{Client, Url, multipart};
+use reqwest::{
+    Client, RequestBuilder, Url,
+    header::{ACCEPT, ACCEPT_LANGUAGE, CONNECTION, HeaderValue, REFERER},
+    multipart,
+};
 use serde::Deserialize;
 use thiserror::Error;
 use tracing::debug;
 
 const APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS: i64 = 1_500;
 const MAX_CLOCK_SYNC_RTT_MS: i64 = 10_000;
+const UCAS_REFERER: &str = "https://servicewechat.com/wxdd3bd7d4acf54723/57/page-frame.html";
+const UCAS_BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36 MicroMessenger/8.0.54.2800(0x2800363D) NetType/WIFI MiniProgramEnv/Android";
 
 fn current_timestamp_ms() -> i64 {
     SystemTime::now()
@@ -236,7 +242,7 @@ impl IClassApiClient {
     /// Builds a client for the given service base URL.
     pub fn new(base_url: impl AsRef<str>) -> Result<Self, ApiError> {
         let http = Client::builder()
-            .user_agent("ucas-iclass-checkin/0.1")
+            .user_agent(UCAS_BROWSER_USER_AGENT)
             .http1_only()
             .build()?;
         Ok(Self {
@@ -261,8 +267,7 @@ impl IClassApiClient {
             .text("phone", credentials.account.clone())
             .text("password", credentials.password.clone());
         let response = self
-            .http
-            .post(url)
+            .with_common_headers(self.http.post(url), None)
             .multipart(form)
             .send()
             .await
@@ -296,8 +301,7 @@ impl IClassApiClient {
         );
         let form = multipart::Form::new().text("userId", session.user_id.clone());
         let response = self
-            .http
-            .post(url)
+            .with_common_headers(self.http.post(url), Some(session))
             .multipart(form)
             .send()
             .await
@@ -323,9 +327,7 @@ impl IClassApiClient {
         );
         let form = multipart::Form::new().text("id", session.user_id.clone());
         let response = self
-            .http
-            .post(url)
-            .header("sessionId", &session.session_id)
+            .with_common_headers(self.http.post(url), Some(session))
             .multipart(form)
             .send()
             .await
@@ -364,9 +366,7 @@ impl IClassApiClient {
             .text("id", session.user_id.clone())
             .text("dateStr", date_str);
         let response = self
-            .http
-            .post(url)
-            .header("sessionId", &session.session_id)
+            .with_common_headers(self.http.post(url), Some(session))
             .multipart(form)
             .send()
             .await
@@ -404,9 +404,7 @@ impl IClassApiClient {
             .text("id", session.user_id.clone())
             .text("dateStr", date_str);
         let response = self
-            .http
-            .post(url)
-            .header("sessionId", &session.session_id)
+            .with_common_headers(self.http.post(url), Some(session))
             .multipart(form)
             .send()
             .await
@@ -513,9 +511,7 @@ impl IClassApiClient {
         );
         let form = multipart::Form::new().text("id", session.user_id.clone());
         let response = self
-            .http
-            .post(url)
-            .header("sessionId", &session.session_id)
+            .with_common_headers(self.http.post(url), Some(session))
             .multipart(form)
             .send()
             .await
@@ -540,9 +536,7 @@ impl IClassApiClient {
         request_summary: &str,
     ) -> Result<CheckInReceipt, ApiError> {
         let response = self
-            .http
-            .get(url)
-            .header("sessionId", &session.session_id)
+            .with_common_headers(self.http.get(url), Some(session))
             .send()
             .await
             .map_err(|source| {
@@ -560,6 +554,28 @@ impl IClassApiClient {
             verified_signed_in: None,
             observed_sign_status: result.stu_sign_status,
         })
+    }
+
+    fn with_common_headers(
+        &self,
+        request: RequestBuilder,
+        session: Option<&Session>,
+    ) -> RequestBuilder {
+        let request = request
+            .header(ACCEPT, HeaderValue::from_static("*/*"))
+            .header(
+                ACCEPT_LANGUAGE,
+                HeaderValue::from_static("zh-CN,zh;q=0.9,en;q=0.8"),
+            )
+            .header(CONNECTION, HeaderValue::from_static("keep-alive"))
+            .header(REFERER, HeaderValue::from_static(UCAS_REFERER))
+            .header("xweb_xhr", HeaderValue::from_static("1"));
+
+        if let Some(session) = session {
+            request.header("sessionId", &session.session_id)
+        } else {
+            request
+        }
     }
 }
 
