@@ -6,6 +6,7 @@ use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime};
 use iclass_core::{CheckInReceipt, CoreErrorKind, Course, IClassCore};
 use iclass_domain::{CheckInAvailability, CheckInMode, ScheduleEntry, Semester};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 
 /// Stable GUI-facing error codes suitable for front-end branching.
@@ -392,6 +393,7 @@ pub async fn load_week_schedule_for(
     let week_start = date - chrono::Days::new(weekday_offset as u64);
     let week_end = week_start + chrono::Days::new(6);
     let mut schedules = core.weekly_schedule(date).await?;
+    overlay_daily_sign_statuses(core, &mut schedules).await?;
     schedules.sort_by_key(|schedule| (schedule.teach_date, schedule.begins_at, schedule.ends_at));
     let mut profile = OperationProfile::new();
     profile.push_phase("weekly_schedule", elapsed_ms(started));
@@ -403,6 +405,45 @@ pub async fn load_week_schedule_for(
         schedules: build_schedule_cards(schedules, now.naive_local()),
         profile,
     })
+}
+
+async fn overlay_daily_sign_statuses(
+    core: &IClassCore,
+    schedules: &mut [ScheduleEntry],
+) -> Result<(), GuiBridgeError> {
+    let mut dates = schedules
+        .iter()
+        .map(|schedule| schedule.teach_date)
+        .collect::<Vec<_>>();
+    dates.sort_unstable();
+    dates.dedup();
+
+    let mut status_map = HashMap::new();
+    for date in dates {
+        let daily_schedules = core.daily_schedule(date).await?;
+        for schedule in daily_schedules {
+            status_map.insert(schedule_status_key(&schedule), schedule.sign_status.clone());
+        }
+    }
+
+    for schedule in schedules.iter_mut() {
+        if let Some(sign_status) = status_map.get(&schedule_status_key(schedule)) {
+            schedule.sign_status = sign_status.clone();
+        }
+    }
+
+    Ok(())
+}
+
+fn schedule_status_key(
+    schedule: &ScheduleEntry,
+) -> (NaiveDate, NaiveDateTime, NaiveDateTime, String) {
+    (
+        schedule.teach_date,
+        schedule.begins_at,
+        schedule.ends_at,
+        schedule.course_name.clone(),
+    )
 }
 
 /// Performs attendance using the given check-in mode and maps it into a GUI view model.
