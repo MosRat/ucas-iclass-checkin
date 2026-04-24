@@ -50,8 +50,8 @@ const automationStatus = computed(() => {
 <template>
   <section class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
     <div class="glass-panel p-3.5 sm:p-5">
-      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-        <div class="min-w-0 flex-1">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <div class="min-w-0">
           <p class="text-xs font-medium uppercase tracking-[0.18em] text-accent-700">当前登录</p>
           <h2 class="mt-2 text-lg font-semibold text-ink-950 sm:text-2xl">
             {{ props.dashboard.session.real_name }}
@@ -61,43 +61,9 @@ const automationStatus = computed(() => {
             上次同步
             {{ new Date(props.dashboard.generated_at).toLocaleString("zh-CN", { hour12: false }) }}
           </p>
-          <div
-            class="mt-4 max-w-[38rem] rounded-[1.5rem] border px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
-            :class="
-              automationStatus.active
-                ? 'border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(220,252,231,0.92))] text-emerald-700'
-                : 'border-slate-200 bg-white/88 text-ink-500'
-            "
-          >
-            <div class="flex flex-col gap-3">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span
-                    class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold sm:text-sm"
-                    :class="
-                      automationStatus.active
-                        ? 'border-emerald-300/80 bg-white/70 text-emerald-700'
-                        : 'border-slate-200 bg-white/80 text-ink-500'
-                    "
-                    >
-                    <span
-                      class="h-2 w-2 rounded-full"
-                      :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
-                    ></span>
-                    {{ automationStatus.label }}
-                  </span>
-                </div>
-                <p class="mt-2 text-sm font-medium leading-6 text-current/95">{{ automationStatus.detail }}</p>
-                <p class="mt-1 text-sm leading-6 text-current/80">{{ automationStatus.course }}</p>
-              </div>
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-current/70 sm:text-sm">
-                <span class="font-medium">轮询策略</span>
-                <span>{{ automationStatus.cadence }}</span>
-              </div>
-            </div>
-          </div>
         </div>
-        <div class="grid shrink-0 grid-cols-2 gap-2 self-start sm:gap-3 lg:w-[22rem] lg:grid-cols-4">
+
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:w-[22rem]">
           <div class="metric-card">
             <p class="metric-label">今日课表</p>
             <p class="metric-value">{{ props.dashboard.schedules.length }}</p>
@@ -115,6 +81,43 @@ const automationStatus = computed(() => {
           <div class="metric-card">
             <p class="metric-label">待处理</p>
             <p class="metric-value">{{ pendingTotal }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="mt-4 rounded-[1.5rem] border px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+        :class="
+          automationStatus.active
+            ? 'border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(220,252,231,0.92))] text-emerald-700'
+            : 'border-slate-200 bg-white/88 text-ink-500'
+        "
+      >
+        <div class="grid gap-3 md:grid-cols-[auto_minmax(0,1fr)] md:items-start">
+          <div class="flex items-start">
+            <span
+              class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold sm:text-sm"
+              :class="
+                automationStatus.active
+                  ? 'border-emerald-300/80 bg-white/70 text-emerald-700'
+                  : 'border-slate-200 bg-white/80 text-ink-500'
+              "
+            >
+              <span
+                class="h-2 w-2 rounded-full"
+                :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
+              ></span>
+              {{ automationStatus.label }}
+            </span>
+          </div>
+
+          <div class="min-w-0">
+            <p class="text-sm font-medium leading-6 text-current/95">{{ automationStatus.detail }}</p>
+            <div class="mt-1 flex flex-col gap-1 text-sm leading-6 text-current/80 md:flex-row md:flex-wrap md:items-center md:gap-x-3">
+              <span>{{ automationStatus.course }}</span>
+              <span class="hidden text-current/40 md:inline">•</span>
+              <span>{{ automationStatus.cadence }}</span>
+            </div>
           </div>
         </div>
       </div>
