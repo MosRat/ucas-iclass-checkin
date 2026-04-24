@@ -331,6 +331,9 @@ fn render_core_error(error: &CoreError) -> String {
         } => {
             format!("{course_name} 已于 {ended_at} 结束，当前无法继续打卡。")
         }
+        CoreError::AlreadyCheckedIn { course_name, .. } => {
+            format!("{course_name} 当前已显示为已打卡，无需重复提交。")
+        }
         CoreError::Session(session_error) => render_session_error(session_error),
     }
 }

@@ -98,7 +98,9 @@ function formatDateTime(value: string) {
                 <p class="metric-label">课程状态</p>
                 <p class="mt-2 text-base font-semibold text-ink-900">
                   {{
-                    card.availability === "Open"
+                    card.schedule.sign_status === "1"
+                      ? "已打卡"
+                      : card.availability === "Open"
                       ? "可立即打卡"
                       : card.availability === "NotOpenYet"
                         ? "等待开放"
@@ -133,7 +135,15 @@ function formatDateTime(value: string) {
                 </div>
                 <div class="flex items-start justify-between gap-4">
                   <dt class="text-ink-400">签到状态</dt>
-                  <dd class="text-right font-medium text-ink-900">{{ card.schedule.sign_status || "未知" }}</dd>
+                  <dd class="text-right font-medium text-ink-900">
+                    {{
+                      card.schedule.sign_status === "1"
+                        ? "已打卡"
+                        : card.schedule.sign_status === "0"
+                          ? "未打卡"
+                          : "未知"
+                    }}
+                  </dd>
                 </div>
               </dl>
             </section>
@@ -152,7 +162,15 @@ function formatDateTime(value: string) {
               type="button"
               @click="emit('checkIn', card)"
             >
-              {{ loading ? "处理中..." : card.can_check_in ? "立即打卡" : "等待开放" }}
+              {{
+                loading
+                  ? "处理中..."
+                  : card.schedule.sign_status === "1"
+                    ? "已完成"
+                    : card.can_check_in
+                      ? "立即打卡"
+                      : "等待开放"
+              }}
             </button>
           </div>
         </aside>

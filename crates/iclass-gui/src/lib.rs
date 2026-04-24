@@ -27,6 +27,8 @@ pub enum GuiErrorCode {
     CheckInTooEarly,
     /// The selected class has already ended.
     CheckInClosed,
+    /// The selected class is already marked as checked in.
+    AlreadyCheckedIn,
     /// Local persistence failed.
     Storage,
     /// Network or transport failure occurred.
@@ -60,6 +62,7 @@ impl GuiBridgeError {
                     CoreErrorKind::UnsupportedCheckInMode => GuiErrorCode::UnsupportedCheckInMode,
                     CoreErrorKind::CheckInTooEarly => GuiErrorCode::CheckInTooEarly,
                     CoreErrorKind::CheckInClosed => GuiErrorCode::CheckInClosed,
+                    CoreErrorKind::AlreadyCheckedIn => GuiErrorCode::AlreadyCheckedIn,
                     CoreErrorKind::QrExpired => GuiErrorCode::QrExpired,
                     CoreErrorKind::Store => GuiErrorCode::Storage,
                     CoreErrorKind::Transport => GuiErrorCode::Network,
@@ -171,6 +174,14 @@ fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
             lines.push(format!("schedule.id={schedule_id}"));
             lines.push(format!("schedule.course={course_name}"));
             lines.push(format!("checkin.ended_at={ended_at}"));
+        }
+        iclass_core::CoreError::AlreadyCheckedIn {
+            schedule_id,
+            course_name,
+        } => {
+            lines.push(format!("schedule.id={schedule_id}"));
+            lines.push(format!("schedule.course={course_name}"));
+            lines.push("checkin.already_signed_in=true".to_string());
         }
     }
 
@@ -314,7 +325,8 @@ pub fn build_schedule_cards(
         .map(|schedule| {
             let availability = schedule.check_in_availability(now);
             let check_in_opens_at = schedule.check_in_opens_at();
-            let can_check_in = availability == CheckInAvailability::Open;
+            let can_check_in =
+                availability == CheckInAvailability::Open && !schedule.is_signed_in();
             ScheduleCard {
                 schedule,
                 check_in_opens_at,

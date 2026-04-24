@@ -8,6 +8,7 @@ use std::{
     },
 };
 
+use chrono::{DateTime, Local};
 use iclass_api::IClassApiClient;
 use iclass_core::IClassCore;
 use iclass_domain::ScheduleEntry;
@@ -21,6 +22,15 @@ struct AutoCheckRecord {
     succeeded: bool,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct AutoCheckLastAction {
+    pub(crate) attempted_at: DateTime<Local>,
+    pub(crate) schedule_id: String,
+    pub(crate) course_name: String,
+    pub(crate) succeeded: bool,
+    pub(crate) message: String,
+}
+
 /// Application-wide shared state for Tauri commands.
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -31,6 +41,7 @@ pub(crate) struct AppState {
     #[cfg(desktop)]
     allow_exit: Arc<AtomicBool>,
     auto_check_records: Arc<Mutex<HashMap<String, AutoCheckRecord>>>,
+    auto_check_last_action: Arc<Mutex<Option<AutoCheckLastAction>>>,
 }
 
 impl AppState {
@@ -51,6 +62,7 @@ impl AppState {
             #[cfg(desktop)]
             allow_exit: Arc::new(AtomicBool::new(false)),
             auto_check_records: Arc::new(Mutex::new(HashMap::new())),
+            auto_check_last_action: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -118,6 +130,23 @@ impl AppState {
                 succeeded,
             },
         );
+    }
+
+    /// Records the most recent background auto check-in action for GUI status display.
+    pub(crate) fn set_auto_check_last_action(&self, action: AutoCheckLastAction) {
+        let mut last_action = self
+            .auto_check_last_action
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *last_action = Some(action);
+    }
+
+    /// Returns the latest background auto check-in action, if any.
+    pub(crate) fn auto_check_last_action(&self) -> Option<AutoCheckLastAction> {
+        self.auto_check_last_action
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 }
 

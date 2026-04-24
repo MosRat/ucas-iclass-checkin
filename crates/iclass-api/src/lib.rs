@@ -343,6 +343,8 @@ impl IClassApiClient {
             record_id: result.stu_sign_id,
             signed_in: result.stu_sign_status.as_deref() == Some("1"),
             status_code: "0".into(),
+            verified_signed_in: None,
+            observed_sign_status: result.stu_sign_status,
         })
     }
 }

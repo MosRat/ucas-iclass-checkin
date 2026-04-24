@@ -3,6 +3,22 @@
 use iclass_domain::{CheckInMode, ScheduleEntry};
 use serde::{Deserialize, Serialize};
 
+/// Serialized summary of the latest background auto check-in action.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AutoCheckLastActionPayload {
+    /// Local timestamp when the action was attempted.
+    pub(crate) attempted_at: String,
+    /// Schedule identifier targeted by the background worker.
+    pub(crate) schedule_id: String,
+    /// Human-readable course name.
+    pub(crate) course_name: String,
+    /// Whether the latest action completed successfully.
+    pub(crate) succeeded: bool,
+    /// Human-readable result message for the latest action.
+    pub(crate) message: String,
+}
+
 /// Login form payload sent by the frontend.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,6 +108,8 @@ pub(crate) struct AutomationSettingsPayload {
     pub(crate) auto_check_interval_seconds: u64,
     /// Preferred check-in mode for background attempts.
     pub(crate) auto_check_in_mode: CheckInModePayload,
+    /// Most recent background auto check-in action, if any.
+    pub(crate) last_auto_check_action: Option<AutoCheckLastActionPayload>,
 }
 
 /// Frontend request for updating background automation behavior.

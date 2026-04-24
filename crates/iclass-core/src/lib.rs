@@ -37,6 +37,8 @@ pub enum CoreErrorKind {
     CheckInTooEarly,
     /// The selected class has already ended.
     CheckInClosed,
+    /// The selected class is already marked as signed in.
+    AlreadyCheckedIn,
     /// Request parameters were rejected by the server.
     Parameter,
     /// Other business-level error.
@@ -83,6 +85,14 @@ pub enum CoreError {
         /// Local datetime when the class ended.
         ended_at: NaiveDateTime,
     },
+    /// The selected class already appears as signed in in the latest schedule snapshot.
+    #[error("{course_name} is already marked as checked in")]
+    AlreadyCheckedIn {
+        /// Identifier of the signed schedule.
+        schedule_id: String,
+        /// Human-readable course name for display.
+        course_name: String,
+    },
 }
 
 impl CoreError {
@@ -105,6 +115,7 @@ impl CoreError {
             Self::UnsupportedCheckInMode { .. } => CoreErrorKind::UnsupportedCheckInMode,
             Self::CheckInNotOpenYet { .. } => CoreErrorKind::CheckInTooEarly,
             Self::CheckInClosed { .. } => CoreErrorKind::CheckInClosed,
+            Self::AlreadyCheckedIn { .. } => CoreErrorKind::AlreadyCheckedIn,
         }
     }
 
@@ -223,9 +234,17 @@ impl IClassCore {
         mode: CheckInMode,
         moment: NaiveDateTime,
     ) -> Result<CheckInAttempt, CoreError> {
+        if schedule.is_signed_in() {
+            return Err(CoreError::AlreadyCheckedIn {
+                schedule_id: schedule.schedule_id.clone(),
+                course_name: schedule.course_name.clone(),
+            });
+        }
+
         validate_check_in_window(&schedule, moment)?;
 
-        let receipt = match mode {
+        let mut schedule = schedule;
+        let mut receipt = match mode {
             CheckInMode::Auto => {
                 if let Some(schedule_uuid) = schedule.schedule_uuid.as_deref() {
                     self.session_client.check_in_by_uuid(schedule_uuid).await?
@@ -263,6 +282,12 @@ impl IClassCore {
                 }
             }
         };
+
+        if let Ok(verified_schedule) = self.refresh_schedule_status(&schedule).await {
+            receipt.verified_signed_in = Some(verified_schedule.is_signed_in());
+            receipt.observed_sign_status = verified_schedule.sign_status.clone();
+            schedule.sign_status = verified_schedule.sign_status;
+        }
 
         Ok(CheckInAttempt { schedule, receipt })
     }
@@ -317,6 +342,35 @@ impl IClassCore {
     }
 }
 
+impl IClassCore {
+    async fn refresh_schedule_status(
+        &self,
+        schedule: &ScheduleEntry,
+    ) -> Result<ScheduleEntry, CoreError> {
+        let mut schedules = self.daily_schedule(schedule.teach_date).await?;
+        if schedules.is_empty() {
+            schedules = self
+                .weekly_schedule(schedule.teach_date)
+                .await?
+                .into_iter()
+                .filter(|entry| entry.teach_date == schedule.teach_date)
+                .collect();
+        }
+
+        schedules
+            .into_iter()
+            .find(|entry| {
+                entry.schedule_id == schedule.schedule_id
+                    || (entry.course_name == schedule.course_name
+                        && entry.begins_at == schedule.begins_at
+                        && entry.ends_at == schedule.ends_at)
+            })
+            .ok_or(CoreError::NoScheduleAvailable {
+                date: schedule.teach_date,
+            })
+    }
+}
+
 /// Ranks schedule rows and returns the best candidate for the given moment.
 ///
 /// Active classes win over future classes, and future classes win over classes that have already ended.
@@ -324,7 +378,11 @@ pub fn select_best_schedule(
     schedules: &[ScheduleEntry],
     moment: NaiveDateTime,
 ) -> Option<ScheduleEntry> {
-    let mut ranked = schedules.to_vec();
+    let mut ranked = schedules
+        .iter()
+        .filter(|schedule| !schedule.is_signed_in())
+        .cloned()
+        .collect::<Vec<_>>();
     ranked.sort_by_key(|schedule| {
         let timing_rank = if schedule.is_active_at(moment) {
             0

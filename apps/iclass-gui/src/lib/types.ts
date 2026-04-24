@@ -7,6 +7,7 @@ export type GuiErrorCode =
   | "QrExpired"
   | "CheckInTooEarly"
   | "CheckInClosed"
+  | "AlreadyCheckedIn"
   | "Storage"
   | "Network"
   | "Parameter"
@@ -101,6 +102,16 @@ export interface CheckInReceipt {
   record_id?: string | null;
   signed_in: boolean;
   status_code: string;
+  verified_signed_in?: boolean | null;
+  observed_sign_status?: string | null;
+}
+
+export interface AutoCheckLastAction {
+  attempted_at: string;
+  schedule_id: string;
+  course_name: string;
+  succeeded: boolean;
+  message: string;
 }
 
 export interface CheckInViewModel {
@@ -136,4 +147,5 @@ export interface AutomationSettings {
   autoCheckInEnabled: boolean;
   autoCheckIntervalSeconds: number;
   autoCheckInMode: "auto" | "uuid" | "id";
+  lastAutoCheckAction?: AutoCheckLastAction | null;
 }

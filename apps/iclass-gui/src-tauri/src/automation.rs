@@ -7,7 +7,7 @@ use tracing::{debug, info, warn};
 
 use crate::{
     settings::{MIN_AUTO_CHECK_INTERVAL_SECONDS, PersistedAutomationSettings},
-    state::AppState,
+    state::{AppState, AutoCheckLastAction},
 };
 
 /// Starts the background auto check-in loop for the current application process.
@@ -87,6 +87,21 @@ async fn run_auto_check_iteration(state: &AppState, settings: PersistedAutomatio
     {
         Ok(result) => {
             state.record_auto_check_attempt(&schedule, now_timestamp, true);
+            let verification_message = match result.receipt.verified_signed_in {
+                Some(true) => "课表复核显示已打卡".to_string(),
+                Some(false) => "接口返回成功，但课表复核尚未显示已打卡".to_string(),
+                None => "接口返回成功，暂未完成课表复核".to_string(),
+            };
+            state.set_auto_check_last_action(AutoCheckLastAction {
+                attempted_at: now,
+                schedule_id: schedule_id.clone(),
+                course_name: course_name.clone(),
+                succeeded: result
+                    .receipt
+                    .verified_signed_in
+                    .unwrap_or(result.receipt.signed_in),
+                message: verification_message.clone(),
+            });
             info!(
                 schedule_id = %schedule_id,
                 course_name = %course_name,
@@ -97,6 +112,13 @@ async fn run_auto_check_iteration(state: &AppState, settings: PersistedAutomatio
         }
         Err(error) => {
             state.record_auto_check_attempt(&schedule, now_timestamp, false);
+            state.set_auto_check_last_action(AutoCheckLastAction {
+                attempted_at: now,
+                schedule_id: schedule_id.clone(),
+                course_name: course_name.clone(),
+                succeeded: false,
+                message: error.to_string(),
+            });
             warn!(
                 schedule_id = %schedule_id,
                 course_name = %course_name,

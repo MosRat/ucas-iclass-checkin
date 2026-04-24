@@ -76,12 +76,14 @@ const desktopSettingsSnapshot = reactive<DesktopSettings>({
 const automationSettings = reactive<AutomationSettings>({
   autoCheckInEnabled: false,
   autoCheckIntervalSeconds: 30,
-  autoCheckInMode: "auto"
+  autoCheckInMode: "auto",
+  lastAutoCheckAction: null
 });
 const automationSettingsSnapshot = reactive<AutomationSettings>({
   autoCheckInEnabled: false,
   autoCheckIntervalSeconds: 30,
-  autoCheckInMode: "auto"
+  autoCheckInMode: "auto",
+  lastAutoCheckAction: null
 });
 const hasShownTrayHint = ref(false);
 let dashboardRequestSerial = 0;
@@ -244,6 +246,14 @@ function syncDashboardState(next: DashboardSnapshot) {
       : null);
 }
 
+function syncAutomationSettings(next: AutomationSettings) {
+  automationSettings.autoCheckInEnabled = next.autoCheckInEnabled;
+  automationSettings.autoCheckIntervalSeconds = next.autoCheckIntervalSeconds;
+  automationSettings.autoCheckInMode = next.autoCheckInMode;
+  automationSettings.lastAutoCheckAction = next.lastAutoCheckAction ?? null;
+  Object.assign(automationSettingsSnapshot, automationSettings);
+}
+
 async function refreshWeekSchedule(date = selectedDate.value) {
   if (weekScheduleRefreshInFlight && weekScheduleRefreshDate === date) {
     return weekScheduleRefreshInFlight;
@@ -343,10 +353,7 @@ async function bootstrap() {
     }
     try {
       const nextAutomationSettings = await getAutomationSettings();
-      automationSettings.autoCheckInEnabled = nextAutomationSettings.autoCheckInEnabled;
-      automationSettings.autoCheckIntervalSeconds = nextAutomationSettings.autoCheckIntervalSeconds;
-      automationSettings.autoCheckInMode = nextAutomationSettings.autoCheckInMode;
-      Object.assign(automationSettingsSnapshot, automationSettings);
+      syncAutomationSettings(nextAutomationSettings);
     } catch {
       statusMessage.value = "读取自动打卡设置失败，已使用当前默认设置。";
       statusTone.value = "error";
@@ -400,19 +407,44 @@ async function performCheckIn(card: ScheduleCard) {
   statusMessage.value = `正在为 ${card.schedule.course_name} 提交打卡…`;
   statusTone.value = "info";
   try {
+    await refreshDashboard(selectedDate.value);
+    const freshCard =
+      dashboard.value?.schedules.find((entry) => entry.schedule.schedule_id === card.schedule.schedule_id) ?? null;
+    if (!freshCard) {
+      throw {
+        code: "NoSchedule",
+        message: "刷新后未找到目标课程，请重试。",
+        retryable: true
+      } as GuiErrorPayload;
+    }
+    if (freshCard.schedule.sign_status === "1") {
+      openDialog("无需重复打卡", `${freshCard.schedule.course_name} 当前已显示为已打卡。`, "info");
+      statusMessage.value = `${freshCard.schedule.course_name} 已是打卡完成状态。`;
+      statusTone.value = "success";
+      return;
+    }
+
     const request: CheckInRequest = {
-      schedule: card.schedule,
+      schedule: freshCard.schedule,
       mode: preferences.defaultCheckInMode
     };
     const result = await checkIn(request);
-    openDialog(
-      result.receipt.signed_in ? "打卡成功" : "打卡完成",
-      `${result.schedule.course_name}\n方式：${result.receipt.method}\n记录：${result.receipt.record_id ?? "无"}\n耗时：${result.profile.total_ms} ms`,
-      "success"
-    );
-    statusMessage.value = `${result.schedule.course_name} 打卡请求已完成，用时 ${result.profile.total_ms} ms。`;
-    statusTone.value = "success";
     await refreshDashboard(selectedDate.value);
+    const refreshedCard =
+      dashboard.value?.schedules.find((entry) => entry.schedule.schedule_id === result.schedule.schedule_id) ?? null;
+    const verifiedSigned = result.receipt.verified_signed_in ?? (refreshedCard?.schedule.sign_status === "1");
+    const verificationLine = verifiedSigned
+      ? "复核：课表已显示为已打卡"
+      : "复核：课表暂未显示为已打卡，请稍后刷新确认";
+    openDialog(
+      verifiedSigned ? "打卡成功" : "打卡已提交",
+      `${result.schedule.course_name}\n方式：${result.receipt.method}\n记录：${result.receipt.record_id ?? "无"}\n${verificationLine}\n耗时：${result.profile.total_ms} ms`,
+      verifiedSigned ? "success" : "info"
+    );
+    statusMessage.value = verifiedSigned
+      ? `${result.schedule.course_name} 已完成打卡并通过课表复核。`
+      : `${result.schedule.course_name} 打卡请求已提交，等待课表状态刷新。`;
+    statusTone.value = verifiedSigned ? "success" : "info";
   } catch (error) {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
@@ -552,10 +584,7 @@ async function persistAutomationSettings(): Promise<boolean> {
       autoCheckIntervalSeconds: automationSettings.autoCheckIntervalSeconds,
       autoCheckInMode: automationSettings.autoCheckInMode
     });
-    automationSettings.autoCheckInEnabled = next.autoCheckInEnabled;
-    automationSettings.autoCheckIntervalSeconds = next.autoCheckIntervalSeconds;
-    automationSettings.autoCheckInMode = next.autoCheckInMode;
-    Object.assign(automationSettingsSnapshot, automationSettings);
+    syncAutomationSettings(next);
     statusMessage.value = next.autoCheckInEnabled
       ? `自动打卡已开启，轮询间隔 ${next.autoCheckIntervalSeconds} 秒。`
       : "自动打卡已关闭。";

@@ -88,6 +88,9 @@ const courseDigest = computed(() =>
 );
 
 function availabilityLabel(card: ScheduleCard) {
+  if (card.schedule.sign_status === "1") {
+    return "已打卡";
+  }
   if (card.availability === "Open") {
     return "现在可打卡";
   }
@@ -101,6 +104,9 @@ function availabilityLabel(card: ScheduleCard) {
 }
 
 function availabilityHint(card: ScheduleCard) {
+  if (card.schedule.sign_status === "1") {
+    return "课表已显示本课程打卡完成";
+  }
   if (card.availability === "Open") {
     return "已进入打卡时间窗口";
   }
@@ -113,9 +119,9 @@ function availabilityHint(card: ScheduleCard) {
 function renderCard(card: ScheduleCard) {
   return {
     id: card.schedule.schedule_id,
-    canCheckIn: card.can_check_in,
-    label: availabilityLabel(card),
-    hint: availabilityHint(card)
+      canCheckIn: card.can_check_in,
+      label: availabilityLabel(card),
+      hint: availabilityHint(card)
   };
 }
 
@@ -254,6 +260,7 @@ function submitCustomCheckIn() {
                   <p class="text-sm leading-6 text-ink-500">
                     课程编号 {{ card.schedule.schedule_id }}
                     <span v-if="card.schedule.schedule_uuid"> · UUID 模式可用</span>
+                    <span v-if="card.schedule.sign_status === '1'"> · 已打卡</span>
                     <span class="block text-xs text-ink-400">{{ renderCard(card).hint }}</span>
                   </p>
                   <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -264,7 +271,15 @@ function submitCustomCheckIn() {
                       type="button"
                       @click="emit('checkIn', card)"
                     >
-                      {{ loading ? "处理中..." : renderCard(card).canCheckIn ? "立即打卡" : "等待开放" }}
+                      {{
+                        loading
+                          ? "处理中..."
+                          : card.schedule.sign_status === "1"
+                            ? "已完成"
+                            : renderCard(card).canCheckIn
+                              ? "立即打卡"
+                              : "等待开放"
+                      }}
                     </button>
                   </div>
                 </div>
@@ -333,6 +348,7 @@ function submitCustomCheckIn() {
                 <p class="text-sm leading-6 text-ink-500">
                   课程编号 {{ card.schedule.schedule_id }}
                   <span v-if="card.schedule.schedule_uuid"> · UUID 模式可用</span>
+                  <span v-if="card.schedule.sign_status === '1'"> · 已打卡</span>
                   <span class="block text-xs text-ink-400">{{ renderCard(card).hint }}</span>
                 </p>
                 <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -343,7 +359,15 @@ function submitCustomCheckIn() {
                     type="button"
                     @click="emit('checkIn', card)"
                   >
-                    {{ loading ? "处理中..." : renderCard(card).canCheckIn ? "立即打卡" : "等待开放" }}
+                    {{
+                      loading
+                        ? "处理中..."
+                        : card.schedule.sign_status === "1"
+                          ? "已完成"
+                          : renderCard(card).canCheckIn
+                            ? "立即打卡"
+                            : "等待开放"
+                    }}
                   </button>
                 </div>
               </div>
@@ -398,6 +422,19 @@ function submitCustomCheckIn() {
               : "未开启，可在设置里打开后台自动打卡。"
           }}
         </p>
+        <div v-if="props.automationSettings.lastAutoCheckAction" class="mt-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+          <p class="text-sm font-semibold" :class="props.automationSettings.lastAutoCheckAction.succeeded ? 'text-emerald-700' : 'text-rose-700'">
+            {{ props.automationSettings.lastAutoCheckAction.succeeded ? "最近一次自动打卡成功" : "最近一次自动打卡未完成" }}
+          </p>
+          <p class="mt-1 text-sm text-ink-600">
+            {{ props.automationSettings.lastAutoCheckAction.course_name }}
+            · {{ props.automationSettings.lastAutoCheckAction.schedule_id }}
+          </p>
+          <p class="mt-2 text-xs leading-5 text-ink-500">
+            {{ new Date(props.automationSettings.lastAutoCheckAction.attempted_at).toLocaleString("zh-CN", { hour12: false }) }}
+            · {{ props.automationSettings.lastAutoCheckAction.message }}
+          </p>
+        </div>
       </div>
 
       <div class="glass-panel p-3.5 sm:p-5">

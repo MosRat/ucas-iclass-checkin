@@ -152,6 +152,11 @@ pub enum CheckInAvailability {
 }
 
 impl ScheduleEntry {
+    /// Returns `true` when the upstream schedule row already indicates a completed sign-in.
+    pub fn is_signed_in(&self) -> bool {
+        self.sign_status.as_deref() == Some("1")
+    }
+
     /// Returns the local datetime when attendance becomes available for this schedule.
     ///
     /// The current GUI policy allows check-in beginning 30 minutes before the class starts.
@@ -241,6 +246,12 @@ pub struct CheckInReceipt {
 
     /// Upstream status code preserved for display or logging.
     pub status_code: String,
+
+    /// Whether a follow-up schedule refresh confirmed the row as signed in.
+    pub verified_signed_in: Option<bool>,
+
+    /// Observed schedule sign status from the verification refresh, when available.
+    pub observed_sign_status: Option<String>,
 }
 
 /// Combined result of choosing a schedule row and attempting attendance.
