@@ -237,6 +237,7 @@ impl IClassApiClient {
     pub fn new(base_url: impl AsRef<str>) -> Result<Self, ApiError> {
         let http = Client::builder()
             .user_agent("ucas-iclass-checkin/0.1")
+            .http1_only()
             .build()?;
         Ok(Self {
             base_url: Url::parse(base_url.as_ref())?,
