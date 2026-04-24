@@ -50,8 +50,8 @@ const automationStatus = computed(() => {
 <template>
   <section class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
     <div class="glass-panel p-3.5 sm:p-5">
-      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0 flex-1">
           <p class="text-xs font-medium uppercase tracking-[0.18em] text-accent-700">当前登录</p>
           <h2 class="mt-2 text-lg font-semibold text-ink-950 sm:text-2xl">
             {{ props.dashboard.session.real_name }}
@@ -62,14 +62,14 @@ const automationStatus = computed(() => {
             {{ new Date(props.dashboard.generated_at).toLocaleString("zh-CN", { hour12: false }) }}
           </p>
           <div
-            class="mt-4 max-w-2xl rounded-[1.75rem] border px-4 py-3.5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]"
+            class="mt-4 max-w-[38rem] rounded-[1.5rem] border px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
             :class="
               automationStatus.active
                 ? 'border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(220,252,231,0.92))] text-emerald-700'
                 : 'border-slate-200 bg-white/88 text-ink-500'
             "
           >
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex flex-col gap-3">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2">
                   <span
@@ -79,26 +79,25 @@ const automationStatus = computed(() => {
                         ? 'border-emerald-300/80 bg-white/70 text-emerald-700'
                         : 'border-slate-200 bg-white/80 text-ink-500'
                     "
-                  >
+                    >
                     <span
                       class="h-2 w-2 rounded-full"
                       :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
                     ></span>
                     {{ automationStatus.label }}
                   </span>
-                  <span class="text-xs font-medium uppercase tracking-[0.18em] text-current/60">Auto Check</span>
                 </div>
                 <p class="mt-2 text-sm font-medium leading-6 text-current/95">{{ automationStatus.detail }}</p>
                 <p class="mt-1 text-sm leading-6 text-current/80">{{ automationStatus.course }}</p>
               </div>
-              <div class="rounded-2xl border border-white/70 bg-white/72 px-3.5 py-2.5 text-sm leading-6 text-current/85">
-                <p class="text-xs font-medium uppercase tracking-[0.18em] text-current/60">轮询策略</p>
-                <p class="mt-1 font-medium">{{ automationStatus.cadence }}</p>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-current/70 sm:text-sm">
+                <span class="font-medium">轮询策略</span>
+                <span>{{ automationStatus.cadence }}</span>
               </div>
             </div>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+        <div class="grid shrink-0 grid-cols-2 gap-2 self-start sm:gap-3 lg:w-[22rem] lg:grid-cols-4">
           <div class="metric-card">
             <p class="metric-label">今日课表</p>
             <p class="metric-value">{{ props.dashboard.schedules.length }}</p>
