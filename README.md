@@ -1,4 +1,7 @@
-Warning: This repository is provided for learning and local experimentation only. No guarantee is made about upstream API origin, stability, correctness, legality, or continued availability. Use it only in ways allowed by your environment and policies.
+> [!WARNING]
+> This repository is provided for learning and local experimentation only.
+> No guarantee is made about upstream API origin, stability, correctness, legality, or continued availability.
+> Use it only in ways allowed by your environment and policies.
 
 # UCAS iCLASS Workspace
 
