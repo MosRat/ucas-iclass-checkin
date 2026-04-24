@@ -2,5 +2,5 @@
   <rect x="32" y="32" width="960" height="960" rx="288" fill="#F5EFE7"/>
   <rect x="38" y="38" width="948" height="948" rx="282" stroke="#D7C5AE" stroke-width="12"/>
   <path d="M328 328 H584 A144 144 0 0 1 728 472 V520 M680 696 H440 A144 144 0 0 1 296 552 V504" stroke="#30261F" stroke-width="64" stroke-linecap="round"/>
-  <path d="M408 496 L480 568 L640 416" stroke="#A27E55" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M408 504 L480 576 L640 424" stroke="#A27E55" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
