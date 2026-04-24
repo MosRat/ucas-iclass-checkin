@@ -3,16 +3,23 @@
 > No guarantee is made about upstream API origin, stability, correctness, legality, or continued availability.
 > Use it only in ways allowed by your environment and policies.
 
-<table>
-  <tr>
-    <td width="88">
-      <img src="docs/assets/project-mark.svg" alt="UCAS iCLASS mark" width="72">
-    </td>
-    <td>
-      <h1>UCAS iCLASS</h1>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/project-mark.svg" alt="UCAS iCLASS mark" width="84">
+</p>
+
+<h1 align="center">UCAS iCLASS</h1>
+
+<p align="center">
+  <a href="#requirements">Requirements</a>
+  ·
+  <a href="#setup">Setup</a>
+  ·
+  <a href="#run">Run</a>
+  ·
+  <a href="#build">Build</a>
+  ·
+  <a href="#release">Release</a>
+</p>
 
 ## Requirements
 
