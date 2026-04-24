@@ -4,9 +4,19 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - ".agents/**"
+      - "LICENSE"
   push:
     branches:
       - main
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+      - ".agents/**"
+      - "LICENSE"
 
 jobs:
   verify:
