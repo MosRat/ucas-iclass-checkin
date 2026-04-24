@@ -35,7 +35,7 @@ const automationStatus = computed(() => {
       detail: props.automationSettings.currentStatus.message,
       course: currentCourse ?? "当前没有候选课程",
       cadence: `每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`,
-      updatedAt: props.automationSettings.currentStatus.updated_at
+      updatedAt: props.automationSettings.currentStatus.updatedAt
     };
   }
 
@@ -45,7 +45,7 @@ const automationStatus = computed(() => {
     detail: "需要时可在设置中开启后台轮询。",
     course: "后台不会主动选择课程",
     cadence: "仅支持应用运行期间自动打卡",
-    updatedAt: props.automationSettings.currentStatus.updated_at
+    updatedAt: props.automationSettings.currentStatus.updatedAt
   };
 });
 </script>

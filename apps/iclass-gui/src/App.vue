@@ -79,14 +79,14 @@ const automationSettings = reactive<AutomationSettings>({
   autoCheckInMode: "auto",
   lastAutoCheckAction: null,
   currentStatus: {
-    updated_at: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     status: "idle",
     message: "等待下一轮自动打卡检查。",
     schedule: null,
     availability: null,
-    check_in_opens_at: null,
-    can_check_in: false,
-    is_signed_in: false
+    checkInOpensAt: null,
+    canCheckIn: false,
+    isSignedIn: false
   }
 });
 const automationSettingsSnapshot = reactive<AutomationSettings>({
@@ -95,14 +95,14 @@ const automationSettingsSnapshot = reactive<AutomationSettings>({
   autoCheckInMode: "auto",
   lastAutoCheckAction: null,
   currentStatus: {
-    updated_at: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     status: "idle",
     message: "等待下一轮自动打卡检查。",
     schedule: null,
     availability: null,
-    check_in_opens_at: null,
-    can_check_in: false,
-    is_signed_in: false
+    checkInOpensAt: null,
+    canCheckIn: false,
+    isSignedIn: false
   }
 });
 const hasShownTrayHint = ref(false);

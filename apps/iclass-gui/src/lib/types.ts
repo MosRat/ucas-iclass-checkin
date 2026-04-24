@@ -107,9 +107,9 @@ export interface CheckInReceipt {
 }
 
 export interface AutoCheckLastAction {
-  attempted_at: string;
-  schedule_id: string;
-  course_name: string;
+  attemptedAt: string;
+  scheduleId: string;
+  courseName: string;
   succeeded: boolean;
   message: string;
 }
@@ -117,14 +117,14 @@ export interface AutoCheckLastAction {
 export type AutoCheckStatusKind = "idle" | "waitingWindow" | "ready" | "attempting" | "success" | "error";
 
 export interface AutoCheckCurrentStatus {
-  updated_at: string;
+  updatedAt: string;
   status: AutoCheckStatusKind;
   message: string;
   schedule?: ScheduleEntry | null;
   availability?: CheckInAvailability | null;
-  check_in_opens_at?: string | null;
-  can_check_in: boolean;
-  is_signed_in: boolean;
+  checkInOpensAt?: string | null;
+  canCheckIn: boolean;
+  isSignedIn: boolean;
 }
 
 export interface CheckInViewModel {

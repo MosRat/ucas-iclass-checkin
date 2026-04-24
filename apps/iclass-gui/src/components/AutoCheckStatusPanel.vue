@@ -61,7 +61,7 @@ function renderAvailability() {
   if (!currentSchedule.value) {
     return "当前没有候选课程";
   }
-  if (currentStatus.value.is_signed_in) {
+  if (currentStatus.value.isSignedIn) {
     return "课表已显示已打卡";
   }
   if (currentStatus.value.availability === "Open") {
@@ -70,8 +70,8 @@ function renderAvailability() {
   if (currentStatus.value.availability === "Closed") {
     return "本课程的打卡窗口已结束";
   }
-  if (currentStatus.value.check_in_opens_at) {
-    return `预计 ${formatClockTime(currentStatus.value.check_in_opens_at)} 开放`;
+  if (currentStatus.value.checkInOpensAt) {
+    return `预计 ${formatClockTime(currentStatus.value.checkInOpensAt)} 开放`;
   }
   return "等待下一次状态刷新";
 }
@@ -149,11 +149,11 @@ function renderAvailability() {
             {{ automationSettings.lastAutoCheckAction.succeeded ? "自动打卡成功" : "自动打卡未完成" }}
           </p>
           <p class="mt-1 text-sm text-ink-600">
-            {{ automationSettings.lastAutoCheckAction.course_name }} ·
-            {{ automationSettings.lastAutoCheckAction.schedule_id }}
+            {{ automationSettings.lastAutoCheckAction.courseName }} ·
+            {{ automationSettings.lastAutoCheckAction.scheduleId }}
           </p>
           <p class="mt-2 text-xs leading-5 text-ink-500">
-            {{ formatDateTime(automationSettings.lastAutoCheckAction.attempted_at) }}
+            {{ formatDateTime(automationSettings.lastAutoCheckAction.attemptedAt) }}
             · {{ automationSettings.lastAutoCheckAction.message }}
           </p>
         </template>
@@ -165,7 +165,7 @@ function renderAvailability() {
 
     <p class="mt-3 text-xs leading-5 text-ink-500">
       最近状态刷新：
-      {{ formatDateTime(currentStatus.updated_at) }}
+      {{ formatDateTime(currentStatus.updatedAt) }}
       <span v-if="currentSchedule"> · {{ currentStatus.message }}</span>
     </p>
   </div>
