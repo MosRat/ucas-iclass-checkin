@@ -22,8 +22,9 @@ use serde::Deserialize;
 use thiserror::Error;
 use tracing::debug;
 
-const APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS: i64 = 1_500;
-const MAX_CLOCK_SYNC_RTT_MS: i64 = 10_000;
+const APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS: i64 = 500;
+const MAX_CLOCK_SYNC_RTT_MS: i64 = 5_000;
+const TIMESTAMP_SAFETY_MARGIN_MS: i64 = 750;
 const UCAS_ORIGIN: &str = "https://servicewechat.com";
 const UCAS_REFERER: &str = "https://servicewechat.com/wxdd3bd7d4acf54723/57/page-frame.html";
 const UCAS_BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36 MicroMessenger/8.0.54.2800(0x2800363D) NetType/WIFI MiniProgramEnv/Android";
@@ -104,7 +105,7 @@ impl ApiError {
                 let message = message.to_ascii_lowercase();
                 if matches!(code.as_str(), "100" | "PARAMETER") || message.contains("参数") {
                     ApiErrorKind::Parameter
-                } else if matches!(code.as_str(), "101") {
+                } else if matches!(code.as_str(), "101" | "102") {
                     ApiErrorKind::QrExpired
                 } else if matches!(code.as_str(), "2") {
                     ApiErrorKind::EmptySchedule
@@ -883,8 +884,10 @@ fn estimate_timestamp_offset_ms(
         return Some(0);
     }
 
-    let local_midpoint_ms = local_sent_at_ms + round_trip_ms / 2;
-    let offset_ms = server_timestamp_ms - local_midpoint_ms;
+    // Bias toward a slightly older timestamp so we avoid getting ahead of the
+    // server clock, which the upstream endpoint rejects as a parameter error.
+    let safe_server_timestamp_ms = server_timestamp_ms.saturating_sub(TIMESTAMP_SAFETY_MARGIN_MS);
+    let offset_ms = safe_server_timestamp_ms - local_received_at_ms;
     if offset_ms.abs() < APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS {
         Some(0)
     } else {
@@ -959,7 +962,7 @@ mod tests {
     #[test]
     fn estimate_timestamp_offset_uses_midpoint_and_threshold() {
         let offset = estimate_timestamp_offset_ms(1_000, 1_200, 3_100).expect("valid offset");
-        assert_eq!(offset, 2_000);
+        assert_eq!(offset, 1_150);
 
         let tiny_offset = estimate_timestamp_offset_ms(1_000, 1_200, 2_250).expect("valid offset");
         assert_eq!(tiny_offset, 0);
@@ -969,5 +972,17 @@ mod tests {
     fn estimate_timestamp_offset_ignores_untrusted_round_trip() {
         let offset = estimate_timestamp_offset_ms(1_000, 20_500, 3_100).expect("valid offset");
         assert_eq!(offset, 0);
+    }
+
+    #[test]
+    fn recognizes_qr_expired_business_error_for_code_102() {
+        let error = ApiError::Business {
+            code: "102".into(),
+            message: "二维码已失效！".into(),
+            request_summary: None,
+        };
+
+        assert!(error.is_qr_expired());
+        assert_eq!(error.kind(), ApiErrorKind::QrExpired);
     }
 }
