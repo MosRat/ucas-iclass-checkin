@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Minus, Settings2, Square, SquareStack, X } from "lucide-vue-next";
+import { Maximize2, Minimize2, Minus, Settings2, X } from "lucide-vue-next";
 
 const props = defineProps<{
   desktopShell: boolean;
@@ -48,22 +48,20 @@ function handlePointerDown(event: MouseEvent) {
       </div>
     </div>
 
-    <div v-if="desktopShell" class="ml-4 flex items-center gap-2 no-drag">
+    <div v-if="desktopShell" class="ml-4 flex items-center gap-1.5 no-drag">
       <button class="titlebar-btn titlebar-btn-subtle" title="设置" type="button" @click="$emit('settings')">
         <Settings2 class="titlebar-icon" aria-hidden="true" />
       </button>
-      <div class="titlebar-window-group">
-        <button class="titlebar-btn titlebar-btn-window" title="最小化" type="button" @click="$emit('minimize')">
-          <Minus class="titlebar-icon" aria-hidden="true" />
-        </button>
-        <button class="titlebar-btn titlebar-btn-window" :title="maximized ? '还原' : '最大化'" type="button" @click="$emit('maximize')">
-          <SquareStack v-if="maximized" class="titlebar-icon" aria-hidden="true" />
-          <Square v-else class="titlebar-icon" aria-hidden="true" />
-        </button>
-        <button class="titlebar-btn titlebar-btn-danger" title="关闭" type="button" @click="$emit('close')">
-          <X class="titlebar-icon" aria-hidden="true" />
-        </button>
-      </div>
+      <button class="titlebar-btn titlebar-btn-window" title="最小化" type="button" @click="$emit('minimize')">
+        <Minus class="titlebar-icon" aria-hidden="true" />
+      </button>
+      <button class="titlebar-btn titlebar-btn-window" :title="maximized ? '还原' : '最大化'" type="button" @click="$emit('maximize')">
+        <Minimize2 v-if="maximized" class="titlebar-icon" aria-hidden="true" />
+        <Maximize2 v-else class="titlebar-icon" aria-hidden="true" />
+      </button>
+      <button class="titlebar-btn titlebar-btn-danger" title="关闭" type="button" @click="$emit('close')">
+        <X class="titlebar-icon" aria-hidden="true" />
+      </button>
     </div>
 
     <div v-else class="ml-4 flex items-center gap-2 no-drag">

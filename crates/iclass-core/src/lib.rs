@@ -435,9 +435,9 @@ pub fn normalize_schedule_entries(schedules: Vec<ScheduleEntry>) -> Vec<Schedule
                 .to_owned();
             let mut schedule = entries.into_iter().max_by_key(|entry| {
                 (
+                    entry.sign_status.as_deref() == Some("1"),
                     entry.supports_uuid_checkin(),
                     entry.supports_id_checkin(),
-                    entry.sign_status.as_deref() == Some("1"),
                 )
             })?;
             schedule.schedule_id = min_schedule_id;
@@ -650,5 +650,24 @@ mod tests {
         assert_eq!(normalized.len(), 1);
         assert_eq!(normalized[0].lesson_units, 2);
         assert_eq!(normalized[0].schedule_id, "3");
+    }
+
+    #[test]
+    fn prefers_signed_schedule_when_merging_duplicate_rows() {
+        let mut unsigned = schedule("8", 8, 10);
+        unsigned.course_name = "智能计算系统".into();
+        unsigned.schedule_uuid = Some("uuid-unsigned".into());
+        unsigned.sign_status = Some("0".into());
+
+        let mut signed = schedule("3", 8, 10);
+        signed.course_name = "智能计算系统".into();
+        signed.schedule_uuid = None;
+        signed.sign_status = Some("1".into());
+
+        let normalized = normalize_schedule_entries(vec![unsigned, signed]);
+        assert_eq!(normalized.len(), 1);
+        assert_eq!(normalized[0].schedule_id, "3");
+        assert_eq!(normalized[0].sign_status.as_deref(), Some("1"));
+        assert!(normalized[0].is_signed_in());
     }
 }

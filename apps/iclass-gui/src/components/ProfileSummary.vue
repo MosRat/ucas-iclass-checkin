@@ -33,7 +33,8 @@ const automationStatus = computed(() => {
       label: "自动打卡运行中",
       detail: props.automationSettings.currentStatus.message,
       course: currentCourse ?? "当前没有候选课程",
-      cadence: `每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
+      cadence: `每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`,
+      updatedAt: props.automationSettings.currentStatus.updated_at
     };
   }
 
@@ -42,7 +43,8 @@ const automationStatus = computed(() => {
     label: "自动打卡已关闭",
     detail: "需要时可在设置中开启后台轮询。",
     course: "后台不会主动选择课程",
-    cadence: "仅支持应用运行期间自动打卡"
+    cadence: "仅支持应用运行期间自动打卡",
+    updatedAt: props.automationSettings.currentStatus.updated_at
   };
 });
 </script>
@@ -118,6 +120,10 @@ const automationStatus = computed(() => {
               <span class="hidden text-current/40 md:inline">•</span>
               <span>{{ automationStatus.cadence }}</span>
             </div>
+            <p class="mt-2 text-xs leading-5 text-current/65">
+              最后一次调度
+              {{ new Date(automationStatus.updatedAt).toLocaleString("zh-CN", { hour12: false }) }}
+            </p>
           </div>
         </div>
       </div>
