@@ -499,6 +499,7 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
   submittingCheckIn.value = true;
   statusMessage.value = `正在使用自定义 ${request.mode.toUpperCase()} 发起打卡…`;
   statusTone.value = "info";
+  let shouldRefreshDashboard = false;
   try {
     const result = await checkInCustom(request);
     openDialog(
@@ -508,7 +509,7 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
     );
     statusMessage.value = `自定义打卡请求已完成，用时 ${result.profile.total_ms} ms。`;
     statusTone.value = "success";
-    await refreshDashboard(selectedDate.value);
+    shouldRefreshDashboard = true;
   } catch (error) {
     const payload = error as GuiErrorPayload;
     statusMessage.value = payload.message;
@@ -516,6 +517,10 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
     openErrorDialog("自定义打卡失败", payload, "", "check_in.custom");
   } finally {
     submittingCheckIn.value = false;
+  }
+
+  if (shouldRefreshDashboard) {
+    void refreshDashboard(selectedDate.value);
   }
 }
 
