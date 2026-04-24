@@ -67,9 +67,9 @@ BASE_SYMBOL = SymbolSpec(
     bottom_line_end=Point(14, 46),
     bottom_arc_end=Point(-4, 28),
     bottom_vertical_end=Point(-4, 22),
-    check_start=Point(7, 20),
-    check_mid=Point(19, 32),
-    check_end=Point(43, 8),
+    check_start=Point(9, 21),
+    check_mid=Point(19, 31),
+    check_end=Point(40, 10),
     arc_radius=18,
 )
 
