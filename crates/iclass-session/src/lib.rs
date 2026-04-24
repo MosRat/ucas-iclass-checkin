@@ -332,10 +332,12 @@ impl SessionClient {
         schedule_uuid: &str,
     ) -> Result<CheckInReceipt, SessionError> {
         let session = self.ensure_session().await?;
+        self.synchronize_timestamp_offset(&session).await;
         match self.api.check_in_by_uuid(&session, schedule_uuid).await {
             Ok(value) => Ok(value),
             Err(error) if error.should_retry_with_relogin() => {
                 let session = self.refresh_session().await?;
+                self.synchronize_timestamp_offset(&session).await;
                 Ok(self.api.check_in_by_uuid(&session, schedule_uuid).await?)
             }
             Err(error) => Err(error.into()),
@@ -345,10 +347,12 @@ impl SessionClient {
     /// Attempts ID-based check-in, retrying once after re-login when appropriate.
     pub async fn check_in_by_id(&self, schedule_id: &str) -> Result<CheckInReceipt, SessionError> {
         let session = self.ensure_session().await?;
+        self.synchronize_timestamp_offset(&session).await;
         match self.api.check_in_by_id(&session, schedule_id).await {
             Ok(value) => Ok(value),
             Err(error) if error.should_retry_with_relogin() => {
                 let session = self.refresh_session().await?;
+                self.synchronize_timestamp_offset(&session).await;
                 Ok(self.api.check_in_by_id(&session, schedule_id).await?)
             }
             Err(error) => Err(error.into()),
