@@ -3,11 +3,16 @@
 > No guarantee is made about upstream API origin, stability, correctness, legality, or continued availability.
 > Use it only in ways allowed by your environment and policies.
 
-<p align="center">
-  <img src="docs/assets/project-mark.svg" alt="UCAS iCLASS mark" width="104">
-</p>
-
-# UCAS iCLASS 
+<table>
+  <tr>
+    <td width="88">
+      <img src="docs/assets/project-mark.svg" alt="UCAS iCLASS mark" width="72">
+    </td>
+    <td>
+      <h1>UCAS iCLASS</h1>
+    </td>
+  </tr>
+</table>
 
 ## Requirements
 
