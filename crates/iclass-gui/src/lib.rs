@@ -141,6 +141,9 @@ fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
                     if let Some(message) = api_error.business_message() {
                         lines.push(format!("api.business_message={message}"));
                     }
+                    if let Some(request_summary) = api_error.request_summary() {
+                        lines.push(request_summary.to_string());
+                    }
                 }
                 iclass_session::SessionError::Store { path, message } => {
                     lines.push(format!("store.path={}", path.display()));

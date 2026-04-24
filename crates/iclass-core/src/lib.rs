@@ -316,27 +316,42 @@ impl IClassCore {
         identifier: &str,
         mode: CheckInMode,
     ) -> Result<CheckInAttempt, CoreError> {
+        let normalized_identifier = normalize_custom_identifier(identifier, mode);
         let now = Local::now().naive_local();
         let receipt = match mode {
             CheckInMode::Auto | CheckInMode::ByUuid => {
-                debug!(identifier, ?mode, "attempting custom uuid check-in");
-                self.session_client.check_in_by_uuid(identifier).await?
+                debug!(
+                    identifier,
+                    normalized_identifier,
+                    ?mode,
+                    "attempting custom uuid check-in"
+                );
+                self.session_client
+                    .check_in_by_uuid(&normalized_identifier)
+                    .await?
             }
             CheckInMode::ById => {
-                debug!(identifier, ?mode, "attempting custom id check-in");
-                self.session_client.check_in_by_id(identifier).await?
+                debug!(
+                    identifier,
+                    normalized_identifier,
+                    ?mode,
+                    "attempting custom id check-in"
+                );
+                self.session_client
+                    .check_in_by_id(&normalized_identifier)
+                    .await?
             }
         };
 
         info!(
-            identifier,
+            identifier = normalized_identifier,
             method = ?receipt.method,
             signed_in = receipt.signed_in,
             "custom check-in request finished"
         );
 
         Ok(CheckInAttempt {
-            schedule: build_custom_schedule(identifier, mode, now),
+            schedule: build_custom_schedule(&normalized_identifier, mode, now),
             receipt,
         })
     }
@@ -483,6 +498,52 @@ fn build_custom_schedule(
     }
 }
 
+fn normalize_custom_identifier(identifier: &str, mode: CheckInMode) -> String {
+    let raw = extract_known_identifier_value(identifier);
+    let ascii = raw
+        .chars()
+        .filter_map(normalize_identifier_char)
+        .collect::<String>();
+
+    match mode {
+        CheckInMode::ById => ascii.chars().filter(char::is_ascii_digit).collect(),
+        CheckInMode::Auto | CheckInMode::ByUuid => ascii
+            .chars()
+            .filter(char::is_ascii_hexdigit)
+            .collect::<String>()
+            .to_ascii_uppercase(),
+    }
+}
+
+fn extract_known_identifier_value(identifier: &str) -> &str {
+    let trimmed = identifier.trim();
+    for marker in ["timeTableId=", "courseSchedId=", "custom:"] {
+        if let Some((_, suffix)) = trimmed.split_once(marker) {
+            return suffix;
+        }
+    }
+    trimmed
+}
+
+fn normalize_identifier_char(value: char) -> Option<char> {
+    match value {
+        '\u{FF10}'..='\u{FF19}' => {
+            let offset = value as u32 - '\u{FF10}' as u32;
+            char::from_u32('0' as u32 + offset)
+        }
+        '\u{FF21}'..='\u{FF3A}' => {
+            let offset = value as u32 - '\u{FF21}' as u32;
+            char::from_u32('A' as u32 + offset)
+        }
+        '\u{FF41}'..='\u{FF5A}' => {
+            let offset = value as u32 - '\u{FF41}' as u32;
+            char::from_u32('a' as u32 + offset)
+        }
+        value if value.is_ascii() => Some(value),
+        _ => None,
+    }
+}
+
 /// Validates whether a schedule may be checked in at the given local moment.
 pub fn validate_check_in_window(
     schedule: &ScheduleEntry,
@@ -509,8 +570,8 @@ mod tests {
     use iclass_domain::{ScheduleEntry, Semester};
 
     use super::{
-        CoreErrorKind, dedupe_semesters, normalize_schedule_entries, select_best_schedule,
-        validate_check_in_window,
+        CheckInMode, CoreErrorKind, dedupe_semesters, normalize_custom_identifier,
+        normalize_schedule_entries, select_best_schedule, validate_check_in_window,
     };
 
     fn schedule(id: &str, begin_hour: u32, end_hour: u32) -> ScheduleEntry {
@@ -669,5 +730,21 @@ mod tests {
         assert_eq!(normalized[0].schedule_id, "3");
         assert_eq!(normalized[0].sign_status.as_deref(), Some("1"));
         assert!(normalized[0].is_signed_in());
+    }
+
+    #[test]
+    fn normalizes_fullwidth_and_prefixed_custom_uuid_identifier() {
+        let normalized =
+            normalize_custom_identifier("timeTableId=ＡＢＣＤ１２３４-abcd", CheckInMode::ByUuid);
+
+        assert_eq!(normalized, "ABCD1234ABCD");
+    }
+
+    #[test]
+    fn normalizes_fullwidth_custom_id_identifier() {
+        let normalized =
+            normalize_custom_identifier("courseSchedId=１１６７４６２", CheckInMode::ById);
+
+        assert_eq!(normalized, "1167462");
     }
 }

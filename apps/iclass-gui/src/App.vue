@@ -512,9 +512,24 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
     shouldRefreshDashboard = true;
   } catch (error) {
     const payload = error as GuiErrorPayload;
+    const debugDetails = [
+      `gui.custom.identifier=${request.identifier}`,
+      `gui.custom.mode=${request.mode}`,
+      payload.debug_details?.trim() ?? ""
+    ]
+      .filter(Boolean)
+      .join("\n");
     statusMessage.value = payload.message;
     statusTone.value = "error";
-    openErrorDialog("自定义打卡失败", payload, "", "check_in.custom");
+    openErrorDialog(
+      "自定义打卡失败",
+      {
+        ...payload,
+        debug_details: debugDetails
+      },
+      "",
+      "check_in.custom"
+    );
   } finally {
     submittingCheckIn.value = false;
   }

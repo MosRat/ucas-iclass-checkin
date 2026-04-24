@@ -55,8 +55,14 @@ pub enum ApiErrorKind {
 #[derive(Debug, Error)]
 pub enum ApiError {
     /// HTTP transport or response decoding error from `reqwest`.
-    #[error("network request failed: {0}")]
-    Transport(#[from] reqwest::Error),
+    #[error("network request failed: {source}")]
+    Transport {
+        /// Original `reqwest` failure.
+        #[source]
+        source: reqwest::Error,
+        /// Optional request summary that omits sensitive headers and credentials.
+        request_summary: Option<String>,
+    },
     /// Base URL or endpoint URL construction error.
     #[error("url error: {0}")]
     Url(#[from] url::ParseError),
@@ -67,20 +73,27 @@ pub enum ApiError {
         code: String,
         /// Upstream business error message.
         message: String,
+        /// Optional request summary that omits sensitive headers and credentials.
+        request_summary: Option<String>,
     },
     /// Local parse or shape mismatch while normalizing API payloads.
-    #[error("api payload parse error: {0}")]
-    Parse(String),
+    #[error("api payload parse error: {message}")]
+    Parse {
+        /// Human-readable parse failure detail.
+        message: String,
+        /// Optional request summary that omits sensitive headers and credentials.
+        request_summary: Option<String>,
+    },
 }
 
 impl ApiError {
     /// Returns the stable classification of this API error.
     pub fn kind(&self) -> ApiErrorKind {
         match self {
-            Self::Transport(_) => ApiErrorKind::Transport,
+            Self::Transport { .. } => ApiErrorKind::Transport,
             Self::Url(_) => ApiErrorKind::Url,
-            Self::Parse(_) => ApiErrorKind::Parse,
-            Self::Business { code, message } => {
+            Self::Parse { .. } => ApiErrorKind::Parse,
+            Self::Business { code, message, .. } => {
                 let message = message.to_ascii_lowercase();
                 if matches!(code.as_str(), "100" | "PARAMETER") || message.contains("参数") {
                     ApiErrorKind::Parameter
@@ -122,6 +135,22 @@ impl ApiError {
         }
     }
 
+    /// Returns the sanitized request summary associated with this error, if available.
+    pub fn request_summary(&self) -> Option<&str> {
+        match self {
+            Self::Transport {
+                request_summary, ..
+            }
+            | Self::Business {
+                request_summary, ..
+            }
+            | Self::Parse {
+                request_summary, ..
+            } => request_summary.as_deref(),
+            Self::Url(_) => None,
+        }
+    }
+
     /// Returns whether this error is a business error with the given code.
     pub fn is_business_code(&self, code: &str) -> bool {
         self.business_code() == Some(code)
@@ -159,6 +188,34 @@ impl ApiError {
     pub fn should_retry_with_relogin(&self) -> bool {
         matches!(self.kind(), ApiErrorKind::Authentication)
     }
+
+    fn transport_with_request(source: reqwest::Error, request_summary: impl Into<String>) -> Self {
+        Self::Transport {
+            source,
+            request_summary: Some(request_summary.into()),
+        }
+    }
+
+    fn business_with_request(
+        code: String,
+        message: String,
+        request_summary: impl Into<String>,
+    ) -> Self {
+        Self::Business {
+            code,
+            message,
+            request_summary: Some(request_summary.into()),
+        }
+    }
+}
+
+impl From<reqwest::Error> for ApiError {
+    fn from(source: reqwest::Error) -> Self {
+        Self::Transport {
+            source,
+            request_summary: None,
+        }
+    }
 }
 
 /// Thin async client around the UCAS iCLASS HTTP API.
@@ -191,12 +248,29 @@ impl IClassApiClient {
     /// Authenticates with the upstream service and returns normalized session data.
     pub async fn login(&self, credentials: &Credentials) -> Result<Session, ApiError> {
         let url = self.endpoint("/app/user/login.action")?;
+        let request_summary = build_request_summary(
+            "POST",
+            "/app/user/login.action",
+            &[
+                ("phone", credentials.account.as_str()),
+                ("password", "<redacted>"),
+            ],
+        );
         let form = multipart::Form::new()
             .text("phone", credentials.account.clone())
             .text("password", credentials.password.clone());
-        let response = self.http.post(url).multipart(form).send().await?;
-        let payload: Envelope<LoginResultDto> = response.json().await?;
-        let body = payload.into_result()?;
+        let response = self
+            .http
+            .post(url)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let payload: Envelope<LoginResultDto> = response
+            .json()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let body = payload.into_result_with_request(Some(request_summary.clone()))?;
 
         Ok(Session {
             user_id: body.id,
@@ -214,11 +288,25 @@ impl IClassApiClient {
     /// Fetches semester metadata for the currently authenticated user.
     pub async fn get_semesters(&self, session: &Session) -> Result<Vec<Semester>, ApiError> {
         let url = self.endpoint("/app/course/get_base_school_year.action")?;
+        let request_summary = build_request_summary(
+            "POST",
+            "/app/course/get_base_school_year.action",
+            &[("userId", session.user_id.as_str())],
+        );
         let form = multipart::Form::new().text("userId", session.user_id.clone());
-        let response = self.http.post(url).multipart(form).send().await?;
-        let payload: Envelope<Vec<SemesterDto>> = response.json().await?;
+        let response = self
+            .http
+            .post(url)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let payload: Envelope<Vec<SemesterDto>> = response
+            .json()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
         payload
-            .into_result()?
+            .into_result_with_request(Some(request_summary.clone()))?
             .into_iter()
             .map(TryInto::try_into)
             .collect()
@@ -227,6 +315,11 @@ impl IClassApiClient {
     /// Fetches the current user's course list.
     pub async fn get_my_courses(&self, session: &Session) -> Result<Vec<Course>, ApiError> {
         let url = self.endpoint("/app/my/get_my_course.action")?;
+        let request_summary = build_request_summary(
+            "POST",
+            "/app/my/get_my_course.action",
+            &[("id", session.user_id.as_str())],
+        );
         let form = multipart::Form::new().text("id", session.user_id.clone());
         let response = self
             .http
@@ -234,10 +327,14 @@ impl IClassApiClient {
             .header("sessionId", &session.session_id)
             .multipart(form)
             .send()
-            .await?;
-        let payload: Envelope<Vec<CourseDto>> = response.json().await?;
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let payload: Envelope<Vec<CourseDto>> = response
+            .json()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
         payload
-            .into_result()?
+            .into_result_with_request(Some(request_summary.clone()))?
             .into_iter()
             .map(TryInto::try_into)
             .collect()
@@ -253,18 +350,31 @@ impl IClassApiClient {
         date: NaiveDate,
     ) -> Result<Vec<ScheduleEntry>, ApiError> {
         let url = self.endpoint("/app/course/get_stu_course_sched.action")?;
+        let date_str = format_api_date(date);
+        let request_summary = build_request_summary(
+            "POST",
+            "/app/course/get_stu_course_sched.action",
+            &[
+                ("id", session.user_id.as_str()),
+                ("dateStr", date_str.as_str()),
+            ],
+        );
         let form = multipart::Form::new()
             .text("id", session.user_id.clone())
-            .text("dateStr", format_api_date(date));
+            .text("dateStr", date_str);
         let response = self
             .http
             .post(url)
             .header("sessionId", &session.session_id)
             .multipart(form)
             .send()
-            .await?;
-        let payload: Envelope<Vec<ScheduleDto>> = response.json().await?;
-        map_schedule_collection(payload)?
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let payload: Envelope<Vec<ScheduleDto>> = response
+            .json()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        map_schedule_collection(payload, &request_summary)?
             .into_iter()
             .map(TryInto::try_into)
             .collect()
@@ -280,19 +390,32 @@ impl IClassApiClient {
         date: NaiveDate,
     ) -> Result<Vec<ScheduleEntry>, ApiError> {
         let url = self.endpoint("/app/course/get_stu_course_sched_week.action")?;
+        let date_str = format_api_date(date);
+        let request_summary = build_request_summary(
+            "POST",
+            "/app/course/get_stu_course_sched_week.action",
+            &[
+                ("id", session.user_id.as_str()),
+                ("dateStr", date_str.as_str()),
+            ],
+        );
         let form = multipart::Form::new()
             .text("id", session.user_id.clone())
-            .text("dateStr", format_api_date(date));
+            .text("dateStr", date_str);
         let response = self
             .http
             .post(url)
             .header("sessionId", &session.session_id)
             .multipart(form)
             .send()
-            .await?;
-        let payload: Envelope<Vec<WeeklyDayDto>> = response.json().await?;
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let payload: Envelope<Vec<WeeklyDayDto>> = response
+            .json()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
         let mut schedules = Vec::new();
-        for day in map_schedule_collection(payload)? {
+        for day in map_schedule_collection(payload, &request_summary)? {
             for schedule in day.sched_data {
                 schedules.push(schedule.try_into()?);
             }
@@ -307,12 +430,23 @@ impl IClassApiClient {
         session: &Session,
         schedule_uuid: &str,
     ) -> Result<CheckInReceipt, ApiError> {
+        let timestamp = self.adjusted_timestamp_ms().to_string();
         let mut url = self.endpoint("/app/course/stu_scan_sign.action")?;
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("timeTableId", schedule_uuid)
-            .append_pair("timestamp", &self.adjusted_timestamp_ms().to_string());
-        self.check_in(session, url, CheckInMethod::Uuid).await
+            .append_pair("timestamp", &timestamp);
+        let request_summary = build_request_summary(
+            "GET",
+            "/app/course/stu_scan_sign.action",
+            &[
+                ("id", session.user_id.as_str()),
+                ("timeTableId", schedule_uuid),
+                ("timestamp", timestamp.as_str()),
+            ],
+        );
+        self.check_in(session, url, CheckInMethod::Uuid, &request_summary)
+            .await
     }
 
     /// Attempts attendance using the numeric `courseSchedId` parameter.
@@ -321,12 +455,23 @@ impl IClassApiClient {
         session: &Session,
         schedule_id: &str,
     ) -> Result<CheckInReceipt, ApiError> {
+        let timestamp = self.adjusted_timestamp_ms().to_string();
         let mut url = self.endpoint("/app/course/stu_scan_sign.action")?;
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("courseSchedId", schedule_id)
-            .append_pair("timestamp", &self.adjusted_timestamp_ms().to_string());
-        self.check_in(session, url, CheckInMethod::Id).await
+            .append_pair("timestamp", &timestamp);
+        let request_summary = build_request_summary(
+            "GET",
+            "/app/course/stu_scan_sign.action",
+            &[
+                ("id", session.user_id.as_str()),
+                ("courseSchedId", schedule_id),
+                ("timestamp", timestamp.as_str()),
+            ],
+        );
+        self.check_in(session, url, CheckInMethod::Id, &request_summary)
+            .await
     }
 
     /// Samples the upstream server clock and updates the local timestamp offset used for check-in.
@@ -360,6 +505,11 @@ impl IClassApiClient {
 
     async fn get_server_timestamp_ms(&self, session: &Session) -> Result<i64, ApiError> {
         let url = self.endpoint("/app/common/get_timestamp.do")?;
+        let request_summary = build_request_summary(
+            "POST",
+            "/app/common/get_timestamp.do",
+            &[("id", session.user_id.as_str())],
+        );
         let form = multipart::Form::new().text("id", session.user_id.clone());
         let response = self
             .http
@@ -367,9 +517,13 @@ impl IClassApiClient {
             .header("sessionId", &session.session_id)
             .multipart(form)
             .send()
-            .await?;
-        let payload: TimestampEnvelope = response.json().await?;
-        payload.into_timestamp()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        let payload: TimestampEnvelope = response
+            .json()
+            .await
+            .map_err(|source| ApiError::transport_with_request(source, request_summary.clone()))?;
+        payload.into_timestamp_with_request(Some(request_summary.clone()))
     }
 
     fn adjusted_timestamp_ms(&self) -> i64 {
@@ -382,15 +536,21 @@ impl IClassApiClient {
         session: &Session,
         url: Url,
         method: CheckInMethod,
+        request_summary: &str,
     ) -> Result<CheckInReceipt, ApiError> {
         let response = self
             .http
             .get(url)
             .header("sessionId", &session.session_id)
             .send()
-            .await?;
-        let payload: Envelope<CheckInResultDto> = response.json().await?;
-        let result = payload.into_result()?;
+            .await
+            .map_err(|source| {
+                ApiError::transport_with_request(source, request_summary.to_owned())
+            })?;
+        let payload: Envelope<CheckInResultDto> = response.json().await.map_err(|source| {
+            ApiError::transport_with_request(source, request_summary.to_owned())
+        })?;
+        let result = payload.into_result_with_request(Some(request_summary.to_owned()))?;
         Ok(CheckInReceipt {
             method,
             record_id: result.stu_sign_id,
@@ -414,17 +574,29 @@ struct Envelope<T> {
 }
 
 impl<T> Envelope<T> {
-    fn into_result(self) -> Result<T, ApiError> {
+    fn into_result_with_request(self, request_summary: Option<String>) -> Result<T, ApiError> {
         if self.status == "0" {
-            self.result
-                .ok_or_else(|| ApiError::Parse("missing result field".into()))
-        } else {
-            Err(ApiError::Business {
-                code: self.error_code.unwrap_or_else(|| self.status.clone()),
-                message: self
-                    .error_message
-                    .unwrap_or_else(|| "unknown business error".into()),
+            self.result.ok_or_else(|| ApiError::Parse {
+                message: "missing result field".into(),
+                request_summary,
             })
+        } else {
+            let code = self.error_code.unwrap_or_else(|| self.status.clone());
+            let message = self
+                .error_message
+                .unwrap_or_else(|| "unknown business error".into());
+            match request_summary {
+                Some(request_summary) => Err(ApiError::business_with_request(
+                    code,
+                    message,
+                    request_summary,
+                )),
+                None => Err(ApiError::Business {
+                    code,
+                    message,
+                    request_summary: None,
+                }),
+            }
         }
     }
 }
@@ -580,17 +752,29 @@ struct TimestampEnvelope {
 }
 
 impl TimestampEnvelope {
-    fn into_timestamp(self) -> Result<i64, ApiError> {
+    fn into_timestamp_with_request(self, request_summary: Option<String>) -> Result<i64, ApiError> {
         if self.status == "0" {
-            self.timestamp
-                .ok_or_else(|| ApiError::Parse("missing timestamp field".into()))
-        } else {
-            Err(ApiError::Business {
-                code: self.error_code.unwrap_or(self.status),
-                message: self
-                    .error_message
-                    .unwrap_or_else(|| "unknown business error".into()),
+            self.timestamp.ok_or_else(|| ApiError::Parse {
+                message: "missing timestamp field".into(),
+                request_summary,
             })
+        } else {
+            let code = self.error_code.unwrap_or(self.status);
+            let message = self
+                .error_message
+                .unwrap_or_else(|| "unknown business error".into());
+            match request_summary {
+                Some(request_summary) => Err(ApiError::business_with_request(
+                    code,
+                    message,
+                    request_summary,
+                )),
+                None => Err(ApiError::Business {
+                    code,
+                    message,
+                    request_summary: None,
+                }),
+            }
         }
     }
 }
@@ -614,23 +798,39 @@ fn parse_optional_date(value: Option<String>, format: &str) -> Result<Option<Nai
 
 /// Parses a required date string using the given format.
 fn parse_date(value: &str, format: &str) -> Result<NaiveDate, ApiError> {
-    NaiveDate::parse_from_str(value, format)
-        .map_err(|error| ApiError::Parse(format!("failed to parse date `{value}`: {error}")))
+    NaiveDate::parse_from_str(value, format).map_err(|error| ApiError::Parse {
+        message: format!("failed to parse date `{value}`: {error}"),
+        request_summary: None,
+    })
 }
 
 /// Parses a required datetime string using the UCAS schedule datetime format.
 fn parse_datetime(value: &str) -> Result<NaiveDateTime, ApiError> {
-    NaiveDateTime::parse_from_str(value, API_DATETIME_FORMAT)
-        .map_err(|error| ApiError::Parse(format!("failed to parse datetime `{value}`: {error}")))
+    NaiveDateTime::parse_from_str(value, API_DATETIME_FORMAT).map_err(|error| ApiError::Parse {
+        message: format!("failed to parse datetime `{value}`: {error}"),
+        request_summary: None,
+    })
 }
 
 /// Normalizes the "no schedule" business response into an empty collection.
-fn map_schedule_collection<T>(payload: Envelope<Vec<T>>) -> Result<Vec<T>, ApiError> {
-    match payload.into_result() {
+fn map_schedule_collection<T>(
+    payload: Envelope<Vec<T>>,
+    request_summary: &str,
+) -> Result<Vec<T>, ApiError> {
+    match payload.into_result_with_request(Some(request_summary.to_owned())) {
         Ok(value) => Ok(value),
         Err(error) if error.is_empty_schedule() => Ok(Vec::new()),
         Err(error) => Err(error),
     }
+}
+
+fn build_request_summary(method: &str, path: &str, params: &[(&str, &str)]) -> String {
+    let params = params
+        .iter()
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect::<Vec<_>>()
+        .join("&");
+    format!("request.method={method}\nrequest.path={path}\nrequest.params={params}")
 }
 
 fn estimate_timestamp_offset_ms(
@@ -690,7 +890,8 @@ mod tests {
             serde_json::from_str(r#"{"STATUS":"2","ERRCODE":"2","ERRMSG":"暂无课表"}"#)
                 .expect("payload should deserialize");
 
-        let schedules = map_schedule_collection(payload).expect("empty schedules should normalize");
+        let schedules = map_schedule_collection(payload, "request.method=POST")
+            .expect("empty schedules should normalize");
         assert!(schedules.is_empty());
     }
 
@@ -699,6 +900,7 @@ mod tests {
         let error = ApiError::Business {
             code: "101".into(),
             message: "二维码已失效！".into(),
+            request_summary: None,
         };
 
         assert!(error.is_qr_expired());
@@ -711,6 +913,7 @@ mod tests {
         let error = ApiError::Business {
             code: "100".into(),
             message: "参数错误!".into(),
+            request_summary: None,
         };
 
         assert!(error.is_parameter_error());

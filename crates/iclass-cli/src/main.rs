@@ -431,6 +431,7 @@ mod tests {
         let error = Error::new(ApiError::Business {
             code: "107".into(),
             message: "密码错误！".into(),
+            request_summary: None,
         });
 
         let rendered = render_error(&error);
