@@ -101,6 +101,14 @@ impl SessionError {
     pub fn should_retry_with_relogin(&self) -> bool {
         self.kind() == SessionErrorKind::Authentication
     }
+
+    /// Returns whether retrying once after refreshing the timestamp offset is likely to help.
+    pub fn should_retry_with_timestamp_sync(&self) -> bool {
+        matches!(
+            self.kind(),
+            SessionErrorKind::QrExpired | SessionErrorKind::Parameter
+        )
+    }
 }
 
 /// JSON-backed storage for persisted session and credential state.
@@ -332,30 +340,40 @@ impl SessionClient {
         schedule_uuid: &str,
     ) -> Result<CheckInReceipt, SessionError> {
         let session = self.ensure_session().await?;
-        self.synchronize_timestamp_offset(&session).await;
         match self.api.check_in_by_uuid(&session, schedule_uuid).await {
             Ok(value) => Ok(value),
-            Err(error) if error.should_retry_with_relogin() => {
-                let session = self.refresh_session().await?;
-                self.synchronize_timestamp_offset(&session).await;
-                Ok(self.api.check_in_by_uuid(&session, schedule_uuid).await?)
+            Err(error) => {
+                let error = SessionError::from(error);
+                if error.should_retry_with_timestamp_sync() {
+                    self.synchronize_timestamp_offset(&session).await;
+                    return Ok(self.api.check_in_by_uuid(&session, schedule_uuid).await?);
+                }
+                if error.should_retry_with_relogin() {
+                    let session = self.refresh_session().await?;
+                    return Ok(self.api.check_in_by_uuid(&session, schedule_uuid).await?);
+                }
+                Err(error)
             }
-            Err(error) => Err(error.into()),
         }
     }
 
     /// Attempts ID-based check-in, retrying once after re-login when appropriate.
     pub async fn check_in_by_id(&self, schedule_id: &str) -> Result<CheckInReceipt, SessionError> {
         let session = self.ensure_session().await?;
-        self.synchronize_timestamp_offset(&session).await;
         match self.api.check_in_by_id(&session, schedule_id).await {
             Ok(value) => Ok(value),
-            Err(error) if error.should_retry_with_relogin() => {
-                let session = self.refresh_session().await?;
-                self.synchronize_timestamp_offset(&session).await;
-                Ok(self.api.check_in_by_id(&session, schedule_id).await?)
+            Err(error) => {
+                let error = SessionError::from(error);
+                if error.should_retry_with_timestamp_sync() {
+                    self.synchronize_timestamp_offset(&session).await;
+                    return Ok(self.api.check_in_by_id(&session, schedule_id).await?);
+                }
+                if error.should_retry_with_relogin() {
+                    let session = self.refresh_session().await?;
+                    return Ok(self.api.check_in_by_id(&session, schedule_id).await?);
+                }
+                Err(error)
             }
-            Err(error) => Err(error.into()),
         }
     }
 
