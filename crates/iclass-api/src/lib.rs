@@ -15,7 +15,7 @@ use std::{
 
 use reqwest::{
     Client, RequestBuilder, Url,
-    header::{ACCEPT, ACCEPT_LANGUAGE, CONNECTION, HeaderValue, REFERER},
+    header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CONNECTION, HeaderValue, ORIGIN, REFERER},
     multipart,
 };
 use serde::Deserialize;
@@ -24,6 +24,7 @@ use tracing::debug;
 
 const APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS: i64 = 1_500;
 const MAX_CLOCK_SYNC_RTT_MS: i64 = 10_000;
+const UCAS_ORIGIN: &str = "https://servicewechat.com";
 const UCAS_REFERER: &str = "https://servicewechat.com/wxdd3bd7d4acf54723/57/page-frame.html";
 const UCAS_BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36 MicroMessenger/8.0.54.2800(0x2800363D) NetType/WIFI MiniProgramEnv/Android";
 
@@ -542,10 +543,12 @@ impl IClassApiClient {
             .map_err(|source| {
                 ApiError::transport_with_request(source, request_summary.to_owned())
             })?;
+        let response_summary = build_response_summary(&response);
         let payload: Envelope<CheckInResultDto> = response.json().await.map_err(|source| {
             ApiError::transport_with_request(source, request_summary.to_owned())
         })?;
-        let result = payload.into_result_with_request(Some(request_summary.to_owned()))?;
+        let result = payload
+            .into_result_with_request(Some(format!("{request_summary}\n{response_summary}")))?;
         Ok(CheckInReceipt {
             method,
             record_id: result.stu_sign_id,
@@ -564,11 +567,19 @@ impl IClassApiClient {
         let request = request
             .header(ACCEPT, HeaderValue::from_static("*/*"))
             .header(
+                ACCEPT_ENCODING,
+                HeaderValue::from_static("gzip, deflate, br"),
+            )
+            .header(
                 ACCEPT_LANGUAGE,
                 HeaderValue::from_static("zh-CN,zh;q=0.9,en;q=0.8"),
             )
             .header(CONNECTION, HeaderValue::from_static("keep-alive"))
+            .header(ORIGIN, HeaderValue::from_static(UCAS_ORIGIN))
             .header(REFERER, HeaderValue::from_static(UCAS_REFERER))
+            .header("Sec-Fetch-Site", HeaderValue::from_static("cross-site"))
+            .header("Sec-Fetch-Mode", HeaderValue::from_static("cors"))
+            .header("Sec-Fetch-Dest", HeaderValue::from_static("empty"))
             .header("xweb_xhr", HeaderValue::from_static("1"));
 
         if let Some(session) = session {
@@ -848,6 +859,14 @@ fn build_request_summary(method: &str, path: &str, params: &[(&str, &str)]) -> S
         .collect::<Vec<_>>()
         .join("&");
     format!("request.method={method}\nrequest.path={path}\nrequest.params={params}")
+}
+
+fn build_response_summary(response: &reqwest::Response) -> String {
+    format!(
+        "response.status={}\nresponse.version={:?}",
+        response.status(),
+        response.version()
+    )
 }
 
 fn estimate_timestamp_offset_ms(
