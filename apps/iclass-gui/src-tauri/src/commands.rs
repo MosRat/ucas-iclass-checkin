@@ -14,15 +14,15 @@ use tracing::{debug, info};
 use crate::{
     desktop::{load_persisted_settings, read_autostart_enabled, write_autostart_enabled},
     models::{
-        AutoCheckLastActionPayload, AutomationSettingsPayload, CheckInModePayload, CheckInRequest,
-        CustomCheckInRequest, DesktopSettingsPayload, LoginRequest,
-        UpdateAutomationSettingsRequest, UpdateDesktopSettingsRequest,
+        AutomationSettingsPayload, CheckInModePayload, CheckInRequest, CustomCheckInRequest,
+        DesktopSettingsPayload, LoginRequest, UpdateAutomationSettingsRequest,
+        UpdateDesktopSettingsRequest, build_automation_settings_payload,
     },
     settings::{
         MAX_AUTO_CHECK_INTERVAL_SECONDS, MIN_AUTO_CHECK_INTERVAL_SECONDS,
         PersistedAutomationSettings, PersistedDesktopSettings,
     },
-    state::AppState,
+    state::{AppState, AutoCheckStatus, AutoCheckStatusKind},
 };
 
 static DASHBOARD_REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -243,20 +243,11 @@ pub(crate) async fn get_automation_settings(
         .automation_settings_store
         .load()
         .map_err(|error| GuiErrorPayload::new(GuiErrorCode::Storage, error.to_string(), false))?;
-    Ok(AutomationSettingsPayload {
-        auto_check_in_enabled: persisted.auto_check_in_enabled,
-        auto_check_interval_seconds: persisted.auto_check_interval_seconds,
-        auto_check_in_mode: persisted.auto_check_in_mode,
-        last_auto_check_action: state.auto_check_last_action().map(|action| {
-            AutoCheckLastActionPayload {
-                attempted_at: action.attempted_at.to_rfc3339(),
-                schedule_id: action.schedule_id,
-                course_name: action.course_name,
-                succeeded: action.succeeded,
-                message: action.message,
-            }
-        }),
-    })
+    Ok(build_automation_settings_payload(
+        persisted,
+        state.auto_check_last_action(),
+        state.auto_check_status(),
+    ))
 }
 
 /// Updates background automation behavior.
@@ -279,20 +270,22 @@ pub(crate) async fn update_automation_settings(
         .save(&normalized)
         .map_err(|error| GuiErrorPayload::new(GuiErrorCode::Storage, error.to_string(), false))?;
 
-    Ok(AutomationSettingsPayload {
-        auto_check_in_enabled: normalized.auto_check_in_enabled,
-        auto_check_interval_seconds: normalized.auto_check_interval_seconds,
-        auto_check_in_mode: normalized.auto_check_in_mode,
-        last_auto_check_action: state.auto_check_last_action().map(|action| {
-            AutoCheckLastActionPayload {
-                attempted_at: action.attempted_at.to_rfc3339(),
-                schedule_id: action.schedule_id,
-                course_name: action.course_name,
-                succeeded: action.succeeded,
-                message: action.message,
-            }
-        }),
-    })
+    state.set_auto_check_status(AutoCheckStatus {
+        updated_at: Local::now(),
+        kind: AutoCheckStatusKind::Idle,
+        message: if normalized.auto_check_in_enabled {
+            "自动打卡已更新，等待下一轮检查。".into()
+        } else {
+            "自动打卡已关闭。".into()
+        },
+        schedule: None,
+    });
+
+    Ok(build_automation_settings_payload(
+        normalized,
+        state.auto_check_last_action(),
+        state.auto_check_status(),
+    ))
 }
 
 /// Parses an optional frontend date string.

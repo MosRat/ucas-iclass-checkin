@@ -23,10 +23,13 @@ const automationStatus = computed(() => {
         : props.automationSettings.autoCheckInMode === "uuid"
           ? "UUID"
           : "ID";
+    const currentCourse = props.automationSettings.currentStatus.schedule?.course_name;
     return {
       active: true,
       label: "自动打卡运行中",
-      detail: `每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
+      detail: currentCourse
+        ? `${props.automationSettings.currentStatus.message} · ${currentCourse} · 每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
+        : `${props.automationSettings.currentStatus.message} · 每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
     };
   }
 

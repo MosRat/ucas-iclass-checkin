@@ -75,15 +75,35 @@ const desktopSettingsSnapshot = reactive<DesktopSettings>({
 });
 const automationSettings = reactive<AutomationSettings>({
   autoCheckInEnabled: false,
-  autoCheckIntervalSeconds: 30,
+  autoCheckIntervalSeconds: 45,
   autoCheckInMode: "auto",
-  lastAutoCheckAction: null
+  lastAutoCheckAction: null,
+  currentStatus: {
+    updated_at: new Date().toISOString(),
+    status: "idle",
+    message: "等待下一轮自动打卡检查。",
+    schedule: null,
+    availability: null,
+    check_in_opens_at: null,
+    can_check_in: false,
+    is_signed_in: false
+  }
 });
 const automationSettingsSnapshot = reactive<AutomationSettings>({
   autoCheckInEnabled: false,
-  autoCheckIntervalSeconds: 30,
+  autoCheckIntervalSeconds: 45,
   autoCheckInMode: "auto",
-  lastAutoCheckAction: null
+  lastAutoCheckAction: null,
+  currentStatus: {
+    updated_at: new Date().toISOString(),
+    status: "idle",
+    message: "等待下一轮自动打卡检查。",
+    schedule: null,
+    availability: null,
+    check_in_opens_at: null,
+    can_check_in: false,
+    is_signed_in: false
+  }
 });
 const hasShownTrayHint = ref(false);
 let dashboardRequestSerial = 0;
@@ -131,6 +151,7 @@ const topStatus = computed(() => {
 
 let ticker: ReturnType<typeof setInterval> | undefined;
 let unlistenTrayHidden: UnlistenFn | undefined;
+let unlistenAutomationStatus: UnlistenFn | undefined;
 
 function openDialog(
   title: string,
@@ -251,7 +272,16 @@ function syncAutomationSettings(next: AutomationSettings) {
   automationSettings.autoCheckIntervalSeconds = next.autoCheckIntervalSeconds;
   automationSettings.autoCheckInMode = next.autoCheckInMode;
   automationSettings.lastAutoCheckAction = next.lastAutoCheckAction ?? null;
-  Object.assign(automationSettingsSnapshot, automationSettings);
+  automationSettings.currentStatus = { ...next.currentStatus };
+  automationSettingsSnapshot.autoCheckInEnabled = automationSettings.autoCheckInEnabled;
+  automationSettingsSnapshot.autoCheckIntervalSeconds = automationSettings.autoCheckIntervalSeconds;
+  automationSettingsSnapshot.autoCheckInMode = automationSettings.autoCheckInMode;
+  automationSettingsSnapshot.lastAutoCheckAction = automationSettings.lastAutoCheckAction;
+  automationSettingsSnapshot.currentStatus = { ...automationSettings.currentStatus };
+}
+
+function isTodaySelected() {
+  return selectedDate.value === localDateInputValue();
 }
 
 async function refreshWeekSchedule(date = selectedDate.value) {
@@ -294,11 +324,17 @@ async function refreshDashboard(date = selectedDate.value) {
     statusMessage.value = "正在同步课表与个人信息…";
     statusTone.value = "info";
     try {
-      const next = await loadDashboard(date);
+      const [next, nextAutomationSettings] = await Promise.all([
+        loadDashboard(date),
+        getAutomationSettings().catch(() => null)
+      ]);
       if (requestId !== dashboardRequestSerial) {
         return;
       }
       syncDashboardState(next);
+      if (nextAutomationSettings) {
+        syncAutomationSettings(nextAutomationSettings);
+      }
       if (scheduleViewMode.value === "week") {
         await refreshWeekSchedule(next.schedule_date);
       }
@@ -376,6 +412,10 @@ async function submitLogin(request: LoginRequest) {
   try {
     const next = await login(request);
     syncDashboardState(next);
+    const nextAutomationSettings = await getAutomationSettings().catch(() => null);
+    if (nextAutomationSettings) {
+      syncAutomationSettings(nextAutomationSettings);
+    }
     if (scheduleViewMode.value === "week") {
       await refreshWeekSchedule(next.schedule_date);
     }
@@ -630,6 +670,18 @@ onMounted(() => {
       unlistenTrayHidden = unlisten;
     });
   }
+  void listen<AutomationSettings>("automation://status-updated", ({ payload }) => {
+    syncAutomationSettings(payload);
+    if (
+      dashboard.value &&
+      isTodaySelected() &&
+      (payload.currentStatus.status === "success" || payload.currentStatus.status === "error")
+    ) {
+      void refreshDashboard(selectedDate.value);
+    }
+  }).then((unlisten) => {
+    unlistenAutomationStatus = unlisten;
+  });
   void bootstrap();
 });
 
@@ -639,6 +691,9 @@ onBeforeUnmount(() => {
   }
   if (unlistenTrayHidden) {
     unlistenTrayHidden();
+  }
+  if (unlistenAutomationStatus) {
+    unlistenAutomationStatus();
   }
 });
 </script>

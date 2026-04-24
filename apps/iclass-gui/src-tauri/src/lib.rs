@@ -46,7 +46,7 @@ pub fn run() {
                 app.manage(state.clone());
                 desktop::restore_desktop_settings(app.handle(), &state);
                 desktop::setup_tray(app.handle(), &state)?;
-                automation::spawn_auto_check_loop(state.clone());
+                automation::spawn_auto_check_loop(app.handle().clone(), state.clone());
 
                 #[cfg(desktop)]
                 if let Some(window) = app.get_webview_window("main") {

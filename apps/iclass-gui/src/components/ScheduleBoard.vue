@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import AutoCheckStatusPanel from "./AutoCheckStatusPanel.vue";
 import type {
   AutomationSettings,
   CustomCheckInRequest,
@@ -119,9 +120,9 @@ function availabilityHint(card: ScheduleCard) {
 function renderCard(card: ScheduleCard) {
   return {
     id: card.schedule.schedule_id,
-      canCheckIn: card.can_check_in,
-      label: availabilityLabel(card),
-      hint: availabilityHint(card)
+    canCheckIn: card.can_check_in,
+    label: availabilityLabel(card),
+    hint: availabilityHint(card)
   };
 }
 
@@ -389,6 +390,8 @@ function submitCustomCheckIn() {
     </div>
 
     <aside class="space-y-4 xl:space-y-5">
+      <AutoCheckStatusPanel :automation-settings="props.automationSettings" />
+
       <div class="glass-panel p-3.5 sm:p-5">
         <h3 class="text-lg font-semibold text-ink-950">课程摘要</h3>
         <div class="mt-3 grid gap-2.5 sm:mt-4 sm:gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -411,30 +414,6 @@ function submitCustomCheckIn() {
           <li>周视图支持按课程名、教师、地点和课程编号快速筛选。</li>
           <li>打卡按钮会在课程开始前 30 分钟自动变为可用。</li>
         </ul>
-      </div>
-
-      <div class="glass-panel p-3.5 sm:p-5">
-        <h3 class="text-lg font-semibold text-ink-950">自动打卡状态</h3>
-        <p class="mt-3 text-sm leading-6 text-ink-600">
-          {{
-            props.automationSettings.autoCheckInEnabled
-              ? `已开启，按 ${props.automationSettings.autoCheckInMode.toUpperCase()} 模式每 ${props.automationSettings.autoCheckIntervalSeconds} 秒轮询一次。`
-              : "未开启，可在设置里打开后台自动打卡。"
-          }}
-        </p>
-        <div v-if="props.automationSettings.lastAutoCheckAction" class="mt-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
-          <p class="text-sm font-semibold" :class="props.automationSettings.lastAutoCheckAction.succeeded ? 'text-emerald-700' : 'text-rose-700'">
-            {{ props.automationSettings.lastAutoCheckAction.succeeded ? "最近一次自动打卡成功" : "最近一次自动打卡未完成" }}
-          </p>
-          <p class="mt-1 text-sm text-ink-600">
-            {{ props.automationSettings.lastAutoCheckAction.course_name }}
-            · {{ props.automationSettings.lastAutoCheckAction.schedule_id }}
-          </p>
-          <p class="mt-2 text-xs leading-5 text-ink-500">
-            {{ new Date(props.automationSettings.lastAutoCheckAction.attempted_at).toLocaleString("zh-CN", { hour12: false }) }}
-            · {{ props.automationSettings.lastAutoCheckAction.message }}
-          </p>
-        </div>
       </div>
 
       <div class="glass-panel p-3.5 sm:p-5">

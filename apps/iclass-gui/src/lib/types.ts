@@ -114,6 +114,19 @@ export interface AutoCheckLastAction {
   message: string;
 }
 
+export type AutoCheckStatusKind = "idle" | "waitingWindow" | "ready" | "attempting" | "success" | "error";
+
+export interface AutoCheckCurrentStatus {
+  updated_at: string;
+  status: AutoCheckStatusKind;
+  message: string;
+  schedule?: ScheduleEntry | null;
+  availability?: CheckInAvailability | null;
+  check_in_opens_at?: string | null;
+  can_check_in: boolean;
+  is_signed_in: boolean;
+}
+
 export interface CheckInViewModel {
   schedule: ScheduleEntry;
   receipt: CheckInReceipt;
@@ -148,4 +161,5 @@ export interface AutomationSettings {
   autoCheckIntervalSeconds: number;
   autoCheckInMode: "auto" | "uuid" | "id";
   lastAutoCheckAction?: AutoCheckLastAction | null;
+  currentStatus: AutoCheckCurrentStatus;
 }

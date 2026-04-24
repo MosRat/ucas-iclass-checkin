@@ -31,6 +31,24 @@ pub(crate) struct AutoCheckLastAction {
     pub(crate) message: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AutoCheckStatusKind {
+    Idle,
+    WaitingWindow,
+    Ready,
+    Attempting,
+    Success,
+    Error,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct AutoCheckStatus {
+    pub(crate) updated_at: DateTime<Local>,
+    pub(crate) kind: AutoCheckStatusKind,
+    pub(crate) message: String,
+    pub(crate) schedule: Option<ScheduleEntry>,
+}
+
 /// Application-wide shared state for Tauri commands.
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -42,6 +60,7 @@ pub(crate) struct AppState {
     allow_exit: Arc<AtomicBool>,
     auto_check_records: Arc<Mutex<HashMap<String, AutoCheckRecord>>>,
     auto_check_last_action: Arc<Mutex<Option<AutoCheckLastAction>>>,
+    auto_check_status: Arc<Mutex<AutoCheckStatus>>,
 }
 
 impl AppState {
@@ -63,6 +82,12 @@ impl AppState {
             allow_exit: Arc::new(AtomicBool::new(false)),
             auto_check_records: Arc::new(Mutex::new(HashMap::new())),
             auto_check_last_action: Arc::new(Mutex::new(None)),
+            auto_check_status: Arc::new(Mutex::new(AutoCheckStatus {
+                updated_at: Local::now(),
+                kind: AutoCheckStatusKind::Idle,
+                message: "等待下一轮自动打卡检查。".into(),
+                schedule: None,
+            })),
         }
     }
 
@@ -144,6 +169,23 @@ impl AppState {
     /// Returns the latest background auto check-in action, if any.
     pub(crate) fn auto_check_last_action(&self) -> Option<AutoCheckLastAction> {
         self.auto_check_last_action
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// Records the latest background auto check-in status for GUI display.
+    pub(crate) fn set_auto_check_status(&self, status: AutoCheckStatus) {
+        let mut current = self
+            .auto_check_status
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *current = status;
+    }
+
+    /// Returns the current background auto check-in status snapshot.
+    pub(crate) fn auto_check_status(&self) -> AutoCheckStatus {
+        self.auto_check_status
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .clone()
