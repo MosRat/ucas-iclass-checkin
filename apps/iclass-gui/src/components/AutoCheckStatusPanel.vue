@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { formatClockTime, formatDateTime } from "../lib/datetime";
 import type { AutomationSettings, AutoCheckStatusKind } from "../lib/types";
 
 const props = defineProps<{
@@ -70,10 +71,7 @@ function renderAvailability() {
     return "本课程的打卡窗口已结束";
   }
   if (currentStatus.value.check_in_opens_at) {
-    return `预计 ${new Date(currentStatus.value.check_in_opens_at).toLocaleTimeString("zh-CN", {
-      hour: "2-digit",
-      minute: "2-digit"
-    })} 开放`;
+    return `预计 ${formatClockTime(currentStatus.value.check_in_opens_at)} 开放`;
   }
   return "等待下一次状态刷新";
 }
@@ -130,9 +128,9 @@ function renderAvailability() {
           </p>
           <p class="mt-2 text-sm leading-6 text-ink-600">{{ renderAvailability() }}</p>
           <p class="mt-3 text-xs leading-5 text-ink-500">
-            {{ new Date(currentSchedule.begins_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
+            {{ formatClockTime(currentSchedule.begins_at) }}
             -
-            {{ new Date(currentSchedule.ends_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
+            {{ formatClockTime(currentSchedule.ends_at) }}
             · {{ currentSchedule.schedule_id }}
           </p>
         </template>
@@ -155,7 +153,7 @@ function renderAvailability() {
             {{ automationSettings.lastAutoCheckAction.schedule_id }}
           </p>
           <p class="mt-2 text-xs leading-5 text-ink-500">
-            {{ new Date(automationSettings.lastAutoCheckAction.attempted_at).toLocaleString("zh-CN", { hour12: false }) }}
+            {{ formatDateTime(automationSettings.lastAutoCheckAction.attempted_at) }}
             · {{ automationSettings.lastAutoCheckAction.message }}
           </p>
         </template>
@@ -167,7 +165,7 @@ function renderAvailability() {
 
     <p class="mt-3 text-xs leading-5 text-ink-500">
       最近状态刷新：
-      {{ new Date(currentStatus.updated_at).toLocaleString("zh-CN", { hour12: false }) }}
+      {{ formatDateTime(currentStatus.updated_at) }}
       <span v-if="currentSchedule"> · {{ currentStatus.message }}</span>
     </p>
   </div>

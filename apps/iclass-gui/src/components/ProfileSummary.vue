@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { formatDateTime } from "../lib/datetime";
 import type { AutomationSettings, DashboardSnapshot } from "../lib/types";
 
 const props = defineProps<{
@@ -61,7 +62,7 @@ const automationStatus = computed(() => {
           <p class="mt-1 text-sm text-ink-500">{{ props.dashboard.session.account }}</p>
           <p class="mt-2 text-xs text-ink-500 sm:text-sm">
             上次同步
-            {{ new Date(props.dashboard.generated_at).toLocaleString("zh-CN", { hour12: false }) }}
+            {{ formatDateTime(props.dashboard.generated_at) }}
           </p>
         </div>
 
@@ -122,7 +123,7 @@ const automationStatus = computed(() => {
             </div>
             <p class="mt-2 text-xs leading-5 text-current/65">
               最后一次调度
-              {{ new Date(automationStatus.updatedAt).toLocaleString("zh-CN", { hour12: false }) }}
+              {{ formatDateTime(automationStatus.updatedAt) }}
             </p>
           </div>
         </div>
