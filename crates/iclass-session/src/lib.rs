@@ -10,6 +10,7 @@ use iclass_api::{ApiError, IClassApiClient};
 use iclass_domain::{CheckInReceipt, Course, Credentials, ScheduleEntry, Semester, Session};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tracing::warn;
 
 /// Stable classification of session-layer failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -225,6 +226,7 @@ impl SessionClient {
         remember_password: bool,
     ) -> Result<Session, SessionError> {
         let session = self.api.login(credentials).await?;
+        self.synchronize_timestamp_offset(&session).await;
         let mut state = self.store.load()?;
         state.session = Some(session.clone());
         if remember_password {
@@ -255,6 +257,7 @@ impl SessionClient {
     pub async fn refresh_session(&self) -> Result<Session, SessionError> {
         let credentials = self.resolve_credentials()?;
         let session = self.api.login(&credentials).await?;
+        self.synchronize_timestamp_offset(&session).await;
         let mut state = self.store.load()?;
         state.session = Some(session.clone());
         if state.credentials.is_none() && self.runtime_credentials.is_some() {
@@ -362,6 +365,12 @@ impl SessionClient {
             .load()?
             .credentials
             .ok_or(SessionError::MissingCredentials)
+    }
+
+    async fn synchronize_timestamp_offset(&self, session: &Session) {
+        if let Err(error) = self.api.synchronize_timestamp_offset(session).await {
+            warn!(error = %error, "failed to synchronize iCLASS timestamp offset");
+        }
     }
 }
 

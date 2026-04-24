@@ -5,18 +5,27 @@ use iclass_domain::{
     API_DATETIME_FORMAT, API_DAY_FORMAT, CheckInMethod, CheckInReceipt, Course, Credentials,
     ScheduleEntry, Semester, Session, UCAS_DEFAULT_BASE_URL, format_api_date,
 };
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicI64, Ordering},
+    },
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use reqwest::{Client, Url, multipart};
 use serde::Deserialize;
 use thiserror::Error;
+use tracing::debug;
 
-fn current_timestamp_ms() -> String {
+const APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS: i64 = 1_500;
+const MAX_CLOCK_SYNC_RTT_MS: i64 = 10_000;
+
+fn current_timestamp_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system time before UNIX_EPOCH")
-        .as_millis()
-        .to_string()
+        .as_millis() as i64
 }
 
 /// Stable classification of low-level API failures.
@@ -157,6 +166,7 @@ impl ApiError {
 pub struct IClassApiClient {
     base_url: Url,
     http: Client,
+    timestamp_offset_ms: Arc<AtomicI64>,
 }
 
 impl Default for IClassApiClient {
@@ -174,6 +184,7 @@ impl IClassApiClient {
         Ok(Self {
             base_url: Url::parse(base_url.as_ref())?,
             http,
+            timestamp_offset_ms: Arc::new(AtomicI64::new(0)),
         })
     }
 
@@ -300,7 +311,7 @@ impl IClassApiClient {
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("timeTableId", schedule_uuid)
-            .append_pair("timestamp", &current_timestamp_ms());
+            .append_pair("timestamp", &self.adjusted_timestamp_ms().to_string());
         self.check_in(session, url, CheckInMethod::Uuid).await
     }
 
@@ -314,13 +325,55 @@ impl IClassApiClient {
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
             .append_pair("courseSchedId", schedule_id)
-            .append_pair("timestamp", &current_timestamp_ms());
+            .append_pair("timestamp", &self.adjusted_timestamp_ms().to_string());
         self.check_in(session, url, CheckInMethod::Id).await
+    }
+
+    /// Samples the upstream server clock and updates the local timestamp offset used for check-in.
+    pub async fn synchronize_timestamp_offset(&self, session: &Session) -> Result<i64, ApiError> {
+        let local_sent_at_ms = current_timestamp_ms();
+        let server_timestamp_ms = self.get_server_timestamp_ms(session).await?;
+        let local_received_at_ms = current_timestamp_ms();
+        let offset_ms = estimate_timestamp_offset_ms(
+            local_sent_at_ms,
+            local_received_at_ms,
+            server_timestamp_ms,
+        )
+        .unwrap_or(0);
+        self.timestamp_offset_ms.store(offset_ms, Ordering::Relaxed);
+        debug!(
+            local_sent_at_ms,
+            local_received_at_ms, server_timestamp_ms, offset_ms, "updated iCLASS timestamp offset"
+        );
+        Ok(offset_ms)
+    }
+
+    /// Returns the currently applied local timestamp offset in milliseconds.
+    pub fn timestamp_offset_ms(&self) -> i64 {
+        self.timestamp_offset_ms.load(Ordering::Relaxed)
     }
 
     /// Resolves an API-relative path against the configured base URL.
     fn endpoint(&self, path: &str) -> Result<Url, ApiError> {
         Ok(self.base_url.join(path)?)
+    }
+
+    async fn get_server_timestamp_ms(&self, session: &Session) -> Result<i64, ApiError> {
+        let url = self.endpoint("/app/common/get_timestamp.do")?;
+        let form = multipart::Form::new().text("id", session.user_id.clone());
+        let response = self
+            .http
+            .post(url)
+            .header("sessionId", &session.session_id)
+            .multipart(form)
+            .send()
+            .await?;
+        let payload: TimestampEnvelope = response.json().await?;
+        payload.into_timestamp()
+    }
+
+    fn adjusted_timestamp_ms(&self) -> i64 {
+        current_timestamp_ms().saturating_add(self.timestamp_offset_ms())
     }
 
     /// Shared implementation for both attendance request variants.
@@ -515,6 +568,33 @@ struct CheckInResultDto {
     stu_sign_status: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct TimestampEnvelope {
+    #[serde(rename = "STATUS")]
+    status: String,
+    #[serde(rename = "ERRCODE")]
+    error_code: Option<String>,
+    #[serde(rename = "ERRMSG")]
+    error_message: Option<String>,
+    timestamp: Option<i64>,
+}
+
+impl TimestampEnvelope {
+    fn into_timestamp(self) -> Result<i64, ApiError> {
+        if self.status == "0" {
+            self.timestamp
+                .ok_or_else(|| ApiError::Parse("missing timestamp field".into()))
+        } else {
+            Err(ApiError::Business {
+                code: self.error_code.unwrap_or(self.status),
+                message: self
+                    .error_message
+                    .unwrap_or_else(|| "unknown business error".into()),
+            })
+        }
+    }
+}
+
 /// Converts empty strings and stringified `null` values into `None`.
 fn empty_to_none(value: Option<String>) -> Option<String> {
     value.and_then(|v| {
@@ -550,6 +630,29 @@ fn map_schedule_collection<T>(payload: Envelope<Vec<T>>) -> Result<Vec<T>, ApiEr
         Ok(value) => Ok(value),
         Err(error) if error.is_empty_schedule() => Ok(Vec::new()),
         Err(error) => Err(error),
+    }
+}
+
+fn estimate_timestamp_offset_ms(
+    local_sent_at_ms: i64,
+    local_received_at_ms: i64,
+    server_timestamp_ms: i64,
+) -> Option<i64> {
+    if local_received_at_ms < local_sent_at_ms {
+        return None;
+    }
+
+    let round_trip_ms = local_received_at_ms - local_sent_at_ms;
+    if round_trip_ms > MAX_CLOCK_SYNC_RTT_MS {
+        return Some(0);
+    }
+
+    let local_midpoint_ms = local_sent_at_ms + round_trip_ms / 2;
+    let offset_ms = server_timestamp_ms - local_midpoint_ms;
+    if offset_ms.abs() < APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS {
+        Some(0)
+    } else {
+        Some(offset_ms)
     }
 }
 
@@ -612,5 +715,20 @@ mod tests {
 
         assert!(error.is_parameter_error());
         assert_eq!(error.kind(), ApiErrorKind::Parameter);
+    }
+
+    #[test]
+    fn estimate_timestamp_offset_uses_midpoint_and_threshold() {
+        let offset = estimate_timestamp_offset_ms(1_000, 1_200, 3_100).expect("valid offset");
+        assert_eq!(offset, 2_000);
+
+        let tiny_offset = estimate_timestamp_offset_ms(1_000, 1_200, 2_250).expect("valid offset");
+        assert_eq!(tiny_offset, 0);
+    }
+
+    #[test]
+    fn estimate_timestamp_offset_ignores_untrusted_round_trip() {
+        let offset = estimate_timestamp_offset_ms(1_000, 20_500, 3_100).expect("valid offset");
+        assert_eq!(offset, 0);
     }
 }
