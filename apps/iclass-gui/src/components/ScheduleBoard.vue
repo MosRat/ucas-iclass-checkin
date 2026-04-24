@@ -122,8 +122,22 @@ function renderCard(card: ScheduleCard) {
     id: card.schedule.schedule_id,
     canCheckIn: card.can_check_in,
     label: availabilityLabel(card),
-    hint: availabilityHint(card)
+    hint: availabilityHint(card),
+    signedIn: card.schedule.sign_status === "1"
   };
+}
+
+function availabilityBadgeClass(card: ScheduleCard) {
+  if (card.schedule.sign_status === "1") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+  if (card.availability === "Open") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+  if (card.availability === "NotOpenYet") {
+    return "bg-amber-100 text-amber-700";
+  }
+  return "bg-slate-200 text-slate-600";
 }
 
 function submitCustomCheckIn() {
@@ -215,6 +229,24 @@ function submitCustomCheckIn() {
               <div class="ml-3 flex flex-col" :class="props.compact ? 'gap-3' : 'gap-4'">
                 <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span
+                        class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        :class="
+                          renderCard(card).signedIn
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-slate-100 text-slate-500'
+                        "
+                      >
+                        {{ renderCard(card).signedIn ? "已打卡" : "未打卡" }}
+                      </span>
+                      <span
+                        v-if="card.schedule.schedule_uuid"
+                        class="inline-flex rounded-full bg-accent-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-700"
+                      >
+                        UUID
+                      </span>
+                    </div>
                     <h4 class="text-base font-semibold leading-6 text-ink-950 sm:text-lg">{{ card.schedule.course_name }}</h4>
                     <p class="mt-1 text-sm text-ink-500">
                       {{ card.schedule.teacher_name || "教师未标注" }} ·
@@ -226,11 +258,7 @@ function submitCustomCheckIn() {
                   </div>
                   <span
                     class="inline-flex self-start rounded-full px-3 py-1 text-xs font-semibold"
-                    :class="{
-                      'bg-emerald-100 text-emerald-700': card.availability === 'Open',
-                      'bg-amber-100 text-amber-700': card.availability === 'NotOpenYet',
-                      'bg-slate-200 text-slate-600': card.availability === 'Closed'
-                    }"
+                    :class="availabilityBadgeClass(card)"
                   >
                     {{ renderCard(card).label }}
                   </span>
@@ -260,8 +288,6 @@ function submitCustomCheckIn() {
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p class="text-sm leading-6 text-ink-500">
                     课程编号 {{ card.schedule.schedule_id }}
-                    <span v-if="card.schedule.schedule_uuid"> · UUID 模式可用</span>
-                    <span v-if="card.schedule.sign_status === '1'"> · 已打卡</span>
                     <span class="block text-xs text-ink-400">{{ renderCard(card).hint }}</span>
                   </p>
                   <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
@@ -303,6 +329,24 @@ function submitCustomCheckIn() {
             <div class="ml-3 flex flex-col" :class="props.compact ? 'gap-3' : 'gap-4'">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                      :class="
+                        renderCard(card).signedIn
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-100 text-slate-500'
+                      "
+                    >
+                      {{ renderCard(card).signedIn ? "已打卡" : "未打卡" }}
+                    </span>
+                    <span
+                      v-if="card.schedule.schedule_uuid"
+                      class="inline-flex rounded-full bg-accent-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-700"
+                    >
+                      UUID
+                    </span>
+                  </div>
                   <h4 class="text-base font-semibold leading-6 text-ink-950 sm:text-lg">{{ card.schedule.course_name }}</h4>
                   <p class="mt-1 text-sm text-ink-500">
                     {{ card.schedule.teacher_name || "教师未标注" }} ·
@@ -314,11 +358,7 @@ function submitCustomCheckIn() {
                 </div>
                 <span
                   class="inline-flex self-start rounded-full px-3 py-1 text-xs font-semibold"
-                  :class="{
-                    'bg-emerald-100 text-emerald-700': card.availability === 'Open',
-                    'bg-amber-100 text-amber-700': card.availability === 'NotOpenYet',
-                    'bg-slate-200 text-slate-600': card.availability === 'Closed'
-                  }"
+                  :class="availabilityBadgeClass(card)"
                 >
                   {{ renderCard(card).label }}
                 </span>
@@ -348,8 +388,6 @@ function submitCustomCheckIn() {
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p class="text-sm leading-6 text-ink-500">
                   课程编号 {{ card.schedule.schedule_id }}
-                  <span v-if="card.schedule.schedule_uuid"> · UUID 模式可用</span>
-                  <span v-if="card.schedule.sign_status === '1'"> · 已打卡</span>
                   <span class="block text-xs text-ink-400">{{ renderCard(card).hint }}</span>
                 </p>
                 <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">

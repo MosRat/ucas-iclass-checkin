@@ -15,6 +15,10 @@ const pendingTotal = computed(() =>
   props.dashboard.courses.reduce((total, course) => total + (course.pending_checkins ?? 0), 0)
 );
 
+const signedToday = computed(() =>
+  props.dashboard.schedules.filter((item) => item.schedule.sign_status === "1").length
+);
+
 const automationStatus = computed(() => {
   if (props.automationSettings.autoCheckInEnabled) {
     const modeLabel =
@@ -27,16 +31,18 @@ const automationStatus = computed(() => {
     return {
       active: true,
       label: "自动打卡运行中",
-      detail: currentCourse
-        ? `${props.automationSettings.currentStatus.message} · ${currentCourse} · 每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
-        : `${props.automationSettings.currentStatus.message} · 每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
+      detail: props.automationSettings.currentStatus.message,
+      course: currentCourse ?? "当前没有候选课程",
+      cadence: `每 ${props.automationSettings.autoCheckIntervalSeconds} 秒检查一次，模式 ${modeLabel}`
     };
   }
 
   return {
     active: false,
     label: "自动打卡已关闭",
-    detail: "需要时可在设置中开启后台轮询。"
+    detail: "需要时可在设置中开启后台轮询。",
+    course: "后台不会主动选择课程",
+    cadence: "仅支持应用运行期间自动打卡"
   };
 });
 </script>
@@ -56,22 +62,43 @@ const automationStatus = computed(() => {
             {{ new Date(props.dashboard.generated_at).toLocaleString("zh-CN", { hour12: false }) }}
           </p>
           <div
-            class="mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:text-sm"
+            class="mt-4 max-w-2xl rounded-[1.75rem] border px-4 py-3.5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]"
             :class="
               automationStatus.active
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-slate-200 bg-white/80 text-ink-500'
+                ? 'border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(220,252,231,0.92))] text-emerald-700'
+                : 'border-slate-200 bg-white/88 text-ink-500'
             "
           >
-            <span
-              class="h-2 w-2 rounded-full"
-              :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
-            ></span>
-            <span>{{ automationStatus.label }}</span>
-            <span class="text-current/70">· {{ automationStatus.detail }}</span>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span
+                    class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold sm:text-sm"
+                    :class="
+                      automationStatus.active
+                        ? 'border-emerald-300/80 bg-white/70 text-emerald-700'
+                        : 'border-slate-200 bg-white/80 text-ink-500'
+                    "
+                  >
+                    <span
+                      class="h-2 w-2 rounded-full"
+                      :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
+                    ></span>
+                    {{ automationStatus.label }}
+                  </span>
+                  <span class="text-xs font-medium uppercase tracking-[0.18em] text-current/60">Auto Check</span>
+                </div>
+                <p class="mt-2 text-sm font-medium leading-6 text-current/95">{{ automationStatus.detail }}</p>
+                <p class="mt-1 text-sm leading-6 text-current/80">{{ automationStatus.course }}</p>
+              </div>
+              <div class="rounded-2xl border border-white/70 bg-white/72 px-3.5 py-2.5 text-sm leading-6 text-current/85">
+                <p class="text-xs font-medium uppercase tracking-[0.18em] text-current/60">轮询策略</p>
+                <p class="mt-1 font-medium">{{ automationStatus.cadence }}</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+        <div class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
           <div class="metric-card">
             <p class="metric-label">今日课表</p>
             <p class="metric-value">{{ props.dashboard.schedules.length }}</p>
@@ -81,6 +108,10 @@ const automationStatus = computed(() => {
             <p class="metric-value">
               {{ props.dashboard.schedules.filter((item) => item.can_check_in).length }}
             </p>
+          </div>
+          <div class="metric-card">
+            <p class="metric-label">已打卡</p>
+            <p class="metric-value">{{ signedToday }}</p>
           </div>
           <div class="metric-card">
             <p class="metric-label">待处理</p>
