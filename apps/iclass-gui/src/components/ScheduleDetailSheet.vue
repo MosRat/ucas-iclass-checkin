@@ -58,10 +58,10 @@ function formatDateTime(value: string) {
 
 <template>
   <transition name="dialog-fade">
-    <div v-if="card" class="fixed inset-0 z-40 bg-slate-950/28 md:bg-transparent">
+    <div v-if="card" class="fixed inset-0 z-40 bg-[rgba(36,28,20,0.18)] md:bg-transparent">
       <div class="pointer-events-none absolute inset-0 flex items-end justify-end p-0 md:p-6">
-        <aside class="pointer-events-auto flex h-[82vh] w-full flex-col rounded-t-[2rem] border border-white/70 bg-white/96 shadow-fluent backdrop-blur-2xl md:h-[calc(100vh-8rem)] md:max-h-[880px] md:w-[28rem] md:rounded-[2rem]">
-          <div class="flex items-center justify-between border-b border-slate-200/70 px-5 py-4">
+        <aside class="pointer-events-auto flex h-[82vh] w-full flex-col rounded-t-[2rem] border border-[rgba(224,214,198,0.88)] bg-[rgba(250,247,241,0.97)] shadow-fluent backdrop-blur-2xl md:h-[calc(100vh-8rem)] md:max-h-[880px] md:w-[28rem] md:rounded-[2rem]">
+          <div class="flex items-center justify-between border-b border-[rgba(224,214,198,0.8)] px-5 py-4">
             <div>
               <p class="text-xs uppercase tracking-[0.24em] text-ink-400">Schedule Detail</p>
               <h3 class="mt-1 text-lg font-semibold text-ink-950">课程详情</h3>
@@ -72,18 +72,18 @@ function formatDateTime(value: string) {
           </div>
 
           <div class="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-            <section class="rounded-[1.75rem] bg-[linear-gradient(135deg,_rgba(33,101,210,0.95),_rgba(72,145,255,0.84))] p-5 text-white shadow-pane">
-              <p class="text-xs uppercase tracking-[0.24em] text-white/70">Selected Class</p>
+            <section class="rounded-[1.75rem] border border-[rgba(224,214,198,0.88)] bg-[linear-gradient(180deg,rgba(248,242,233,0.98),rgba(239,231,220,0.94))] p-5 text-ink-900 shadow-pane">
+              <p class="text-xs uppercase tracking-[0.24em] text-ink-400">Selected Class</p>
               <h4 class="mt-3 text-2xl font-semibold leading-tight">{{ card.schedule.course_name }}</h4>
-              <p class="mt-3 text-sm text-white/78">
+              <p class="mt-3 text-sm text-ink-600">
                 {{ card.schedule.teacher_name || "教师未标注" }} ·
                 {{ card.schedule.classroom_name || "地点未标注" }}
               </p>
               <div class="mt-5 flex flex-wrap gap-2 text-xs font-medium">
-                <span class="rounded-full bg-white/18 px-3 py-1 text-white/88">
+                <span class="rounded-full border border-[rgba(216,201,180,0.9)] bg-[rgba(255,250,244,0.72)] px-3 py-1 text-[rgb(118,85,47)]">
                   {{ timeline }}
                 </span>
-                <span class="rounded-full bg-white/18 px-3 py-1 text-white/88">
+                <span class="rounded-full border border-[rgba(216,201,180,0.9)] bg-[rgba(255,250,244,0.72)] px-3 py-1 text-[rgb(118,85,47)]">
                   {{ card.schedule.schedule_uuid ? "UUID 可用" : "仅 ID 模式" }}
                 </span>
               </div>
@@ -148,13 +148,13 @@ function formatDateTime(value: string) {
               </dl>
             </section>
 
-            <section class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/90 p-5 text-sm leading-6 text-ink-600">
+            <section class="rounded-[1.75rem] border border-dashed border-[rgba(211,198,180,0.9)] bg-[rgba(250,245,238,0.9)] p-5 text-sm leading-6 text-ink-600">
               <p>课程开始前 30 分钟会自动开放打卡。</p>
               <p>如果上游接口返回二维码过期、参数错误或 session 失效，弹窗会给出可区分的错误信息。</p>
             </section>
           </div>
 
-          <div class="flex items-center justify-between gap-3 border-t border-slate-200/70 px-5 py-4">
+          <div class="flex items-center justify-between gap-3 border-t border-[rgba(224,214,198,0.8)] px-5 py-4">
             <button class="secondary-btn" type="button" @click="emit('close')">收起详情</button>
             <button
               class="primary-btn justify-center"

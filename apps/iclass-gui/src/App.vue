@@ -704,10 +704,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="relative isolate h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(63,131,248,0.18),_rgba(244,247,251,1)_34%,_rgba(232,238,247,1)_100%)] text-ink-900">
-    <div class="pointer-events-none absolute -left-20 top-16 h-56 w-56 rounded-full bg-accent-200/45 blur-3xl"></div>
-    <div class="pointer-events-none absolute right-[-4rem] top-[-2rem] h-64 w-64 rounded-full bg-sky-200/40 blur-3xl"></div>
-    <div class="pointer-events-none absolute bottom-[-5rem] left-1/3 h-72 w-72 rounded-full bg-white/55 blur-3xl"></div>
+  <div class="relative isolate h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(199,167,128,0.15),_rgba(250,247,241,1)_34%,_rgba(241,236,228,1)_100%)] text-ink-900">
+    <div class="pointer-events-none absolute -left-20 top-16 h-56 w-56 rounded-full bg-[rgba(197,170,133,0.22)] blur-3xl"></div>
+    <div class="pointer-events-none absolute right-[-4rem] top-[-2rem] h-64 w-64 rounded-full bg-[rgba(232,220,201,0.42)] blur-3xl"></div>
+    <div class="pointer-events-none absolute bottom-[-5rem] left-1/3 h-72 w-72 rounded-full bg-white/45 blur-3xl"></div>
     <div class="mx-auto flex h-screen max-w-[1600px] flex-col overflow-hidden">
       <AppTitleBar
         :desktop-shell="desktopShell"
@@ -726,7 +726,7 @@ onBeforeUnmount(() => {
             :class="[
               showLogin ? 'px-3 py-3 sm:px-5 sm:py-4 md:px-6' : 'px-3.5 py-3.5 sm:px-5 sm:py-4 md:px-6',
               {
-                'border-accent-200/70': topStatus.tone === 'info',
+                'border-[rgba(215,201,182,0.9)]': topStatus.tone === 'info',
                 'border-emerald-200/70': topStatus.tone === 'success',
                 'border-rose-200/80': topStatus.tone === 'error'
               }
@@ -735,7 +735,7 @@ onBeforeUnmount(() => {
             <div
               class="pointer-events-none absolute inset-y-0 right-0 w-52 opacity-80"
               :class="{
-                'bg-[radial-gradient(circle_at_center,_rgba(96,165,250,0.18),_rgba(255,255,255,0))]': topStatus.tone === 'info',
+                'bg-[radial-gradient(circle_at_center,_rgba(196,162,118,0.2),_rgba(255,255,255,0))]': topStatus.tone === 'info',
                 'bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.16),_rgba(255,255,255,0))]': topStatus.tone === 'success',
                 'bg-[radial-gradient(circle_at_center,_rgba(244,63,94,0.16),_rgba(255,255,255,0))]': topStatus.tone === 'error'
               }"
@@ -750,7 +750,7 @@ onBeforeUnmount(() => {
                   :class="[
                     showLogin ? 'mt-0.5 h-8 w-8 sm:mt-1 sm:h-10 sm:w-10' : 'mt-0.5 h-9 w-9 sm:mt-1 sm:h-11 sm:w-11',
                     {
-                      'bg-accent-100 text-accent-700': topStatus.tone === 'info',
+                      'bg-[rgba(244,234,218,0.92)] text-[rgb(118,85,47)]': topStatus.tone === 'info',
                       'bg-emerald-100 text-emerald-700': topStatus.tone === 'success',
                       'bg-rose-100 text-rose-700': topStatus.tone === 'error'
                     }
@@ -768,20 +768,20 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-2 text-sm text-ink-500" :class="showLogin ? 'hidden sm:flex' : ''">
-                <span class="hidden rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)] sm:inline-flex">
+                <span class="hidden rounded-full border border-[rgba(223,213,198,0.9)] bg-[rgba(255,252,247,0.9)] px-3 py-1.5 shadow-[0_8px_20px_rgba(90,70,43,0.05)] sm:inline-flex">
                   {{ scheduleViewMode === "week" ? "周视图" : "日视图" }}
                 </span>
-                <span class="hidden rounded-full bg-white/82 px-3 py-1.5 shadow-[0_8px_20px_rgba(26,44,81,0.06)] sm:inline-flex">
+                <span class="hidden rounded-full border border-[rgba(223,213,198,0.9)] bg-[rgba(255,252,247,0.9)] px-3 py-1.5 shadow-[0_8px_20px_rgba(90,70,43,0.05)] sm:inline-flex">
                   {{ dashboard ? `已同步 ${dashboard.schedules.length} 个时段` : "等待同步" }}
                 </span>
-                <span class="max-w-full rounded-full bg-white/82 px-2.5 py-1.5 text-xs shadow-[0_8px_20px_rgba(26,44,81,0.06)] sm:px-3 sm:text-sm">{{ statusMessage }}</span>
+                <span class="max-w-full rounded-full border border-[rgba(223,213,198,0.9)] bg-[rgba(255,252,247,0.9)] px-2.5 py-1.5 text-xs shadow-[0_8px_20px_rgba(90,70,43,0.05)] sm:px-3 sm:text-sm">{{ statusMessage }}</span>
               </div>
             </div>
           </section>
 
           <section
             v-if="desktopSettings.closeToTray && hasShownTrayHint"
-            class="rounded-4xl border border-accent-200/80 bg-white/88 px-5 py-4 text-sm leading-6 text-ink-600 shadow-pane"
+            class="rounded-4xl border border-[rgba(218,205,188,0.9)] bg-[rgba(255,251,246,0.9)] px-5 py-4 text-sm leading-6 text-ink-600 shadow-pane"
           >
             已隐藏到系统托盘。可通过托盘图标重新打开主窗口；如果不希望这样工作，可以在设置里关闭“关闭时隐藏到托盘”。
           </section>

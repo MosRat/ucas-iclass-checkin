@@ -34,17 +34,17 @@ function handlePointerDown(event: MouseEvent) {
 
 <template>
   <header
-    class="sticky top-0 z-30 flex h-16 items-center border-b border-white/60 bg-white/72 px-3 backdrop-blur-xl select-none md:px-4"
+    class="sticky top-0 z-30 flex h-16 items-center border-b border-[rgba(221,211,197,0.8)] bg-[rgba(250,247,241,0.86)] px-3 backdrop-blur-xl select-none md:px-4"
     :data-tauri-drag-region="desktopShell ? '' : undefined"
     @mousedown="handlePointerDown"
   >
     <div class="flex min-w-0 flex-1 items-center gap-3">
-      <div class="flex h-10 w-10 items-center justify-center rounded-[1.35rem] bg-[linear-gradient(160deg,rgba(24,80,186,1),rgba(55,124,242,0.96))] text-sm font-semibold text-white shadow-[0_14px_30px_rgba(28,86,190,0.28)]">
-        I
+      <div class="flex h-10 w-10 items-center justify-center rounded-[1.35rem] border border-[rgba(222,209,191,0.95)] bg-[linear-gradient(180deg,rgba(255,252,247,0.98),rgba(243,236,226,0.98))] text-sm font-semibold text-[rgb(73,58,42)] shadow-[0_12px_24px_rgba(90,70,43,0.08)]">
+        Ic
       </div>
       <div class="min-w-0">
         <p class="truncate text-sm font-semibold tracking-[0.01em] text-ink-900">UCAS iCLASS</p>
-        <p class="truncate text-xs text-ink-500">课程工作台</p>
+        <p class="truncate text-xs text-ink-500">Course workspace</p>
       </div>
     </div>
 
@@ -66,7 +66,7 @@ function handlePointerDown(event: MouseEvent) {
 
     <div v-else class="ml-4 flex items-center gap-2 no-drag">
       <button
-        class="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/80 bg-white/88 px-3.5 text-sm font-semibold text-ink-700 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition active:scale-[0.98]"
+        class="inline-flex h-11 items-center gap-2 rounded-2xl border border-[rgba(221,211,197,0.9)] bg-[rgba(255,251,246,0.94)] px-3.5 text-sm font-semibold text-ink-700 shadow-[0_10px_24px_rgba(90,70,43,0.06)] transition active:scale-[0.98]"
         title="设置"
         type="button"
         @click="$emit('settings')"

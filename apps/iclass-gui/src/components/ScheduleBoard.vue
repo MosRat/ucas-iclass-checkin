@@ -156,7 +156,7 @@ function submitCustomCheckIn() {
 <template>
   <section class="grid gap-4 sm:gap-5 xl:grid-cols-[1.2fr_0.8fr]">
     <div class="glass-panel overflow-hidden p-0">
-      <div class="flex flex-col gap-3 border-b border-slate-200/70 px-3.5 py-3.5 sm:px-5 sm:py-5">
+      <div class="flex flex-col gap-3 border-b border-[rgba(224,214,198,0.8)] px-3.5 py-3.5 sm:px-5 sm:py-5">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h3 class="text-lg font-semibold text-ink-950">课表工作台</h3>
@@ -177,10 +177,14 @@ function submitCustomCheckIn() {
         </div>
 
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="inline-flex self-start rounded-3xl border border-white/70 bg-white/90 p-1 shadow-[0_8px_20px_rgba(27,46,89,0.08)]">
+          <div class="inline-flex self-start rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.92)] p-1 shadow-[0_8px_20px_rgba(90,70,43,0.06)]">
             <button
               class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
-              :class="props.viewMode === 'day' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
+              :class="
+                props.viewMode === 'day'
+                  ? 'bg-[rgb(57,47,38)] text-white shadow-[0_12px_22px_rgba(57,47,38,0.18)]'
+                  : 'text-ink-600'
+              "
               type="button"
               @click="emit('updateViewMode', 'day')"
             >
@@ -188,7 +192,11 @@ function submitCustomCheckIn() {
             </button>
             <button
               class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
-              :class="props.viewMode === 'week' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
+              :class="
+                props.viewMode === 'week'
+                  ? 'bg-[rgb(57,47,38)] text-white shadow-[0_12px_22px_rgba(57,47,38,0.18)]'
+                  : 'text-ink-600'
+              "
               type="button"
               @click="emit('updateViewMode', 'week')"
             >
@@ -219,13 +227,13 @@ function submitCustomCheckIn() {
             <article
               v-for="card in group.cards"
               :key="card.schedule.schedule_id"
-              class="relative overflow-hidden rounded-[1.4rem] border border-white/80 bg-white/88 p-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)] sm:rounded-[1.75rem] sm:p-5"
+              class="relative overflow-hidden rounded-[1.4rem] border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.88)] p-3.5 shadow-[0_10px_24px_rgba(90,70,43,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(90,70,43,0.1)] sm:rounded-[1.75rem] sm:p-5"
               :class="{
-                'ring-2 ring-accent-300 shadow-[0_18px_34px_rgba(30,91,214,0.14)]': props.selectedScheduleId === card.schedule.schedule_id,
+                'ring-2 ring-[rgba(193,168,133,0.45)] shadow-[0_18px_34px_rgba(90,70,43,0.12)]': props.selectedScheduleId === card.schedule.schedule_id,
                 'p-4': props.compact
               }"
             >
-              <div class="absolute inset-y-4 left-0 w-1 rounded-r-full bg-accent-500"></div>
+              <div class="absolute inset-y-4 left-0 w-1 rounded-r-full bg-[rgb(181,154,121)]"></div>
               <div class="ml-3 flex flex-col" :class="props.compact ? 'gap-3' : 'gap-4'">
                 <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
@@ -242,7 +250,7 @@ function submitCustomCheckIn() {
                       </span>
                       <span
                         v-if="card.schedule.schedule_uuid"
-                        class="inline-flex rounded-full bg-accent-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-700"
+                        class="inline-flex rounded-full bg-[rgba(245,236,224,0.9)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[rgb(122,90,54)]"
                       >
                         UUID
                       </span>
@@ -252,7 +260,7 @@ function submitCustomCheckIn() {
                       {{ card.schedule.teacher_name || "教师未标注" }} ·
                       {{ card.schedule.classroom_name || "地点未标注" }}
                     </p>
-                    <p v-if="card.schedule.lesson_units > 1" class="mt-2 text-xs font-medium text-accent-700">
+                    <p v-if="card.schedule.lesson_units > 1" class="mt-2 text-xs font-medium text-[rgb(122,90,54)]">
                       本堂课共 {{ card.schedule.lesson_units }} 课时
                     </p>
                   </div>
@@ -265,19 +273,19 @@ function submitCustomCheckIn() {
                 </div>
 
                 <div class="grid grid-cols-2 text-sm text-ink-600 sm:grid-cols-3" :class="props.compact ? 'gap-2' : 'gap-2.5 sm:gap-3'">
-                  <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
+                  <div class="rounded-2xl border border-[rgba(229,221,210,0.88)] bg-[rgba(250,245,238,0.88)] px-3.5 py-3 sm:px-4">
                     <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开始</p>
                     <p class="mt-2 font-medium text-ink-800">
                       {{ new Date(card.schedule.begins_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                     </p>
                   </div>
-                  <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
+                  <div class="rounded-2xl border border-[rgba(229,221,210,0.88)] bg-[rgba(250,245,238,0.88)] px-3.5 py-3 sm:px-4">
                     <p class="text-xs uppercase tracking-[0.2em] text-ink-400">结束</p>
                     <p class="mt-2 font-medium text-ink-800">
                       {{ new Date(card.schedule.ends_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                     </p>
                   </div>
-                  <div class="col-span-2 rounded-2xl bg-slate-50 px-3.5 py-3 sm:col-span-1 sm:px-4">
+                  <div class="col-span-2 rounded-2xl border border-[rgba(229,221,210,0.88)] bg-[rgba(250,245,238,0.88)] px-3.5 py-3 sm:col-span-1 sm:px-4">
                     <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开放打卡</p>
                     <p class="mt-2 font-medium text-ink-800">
                       {{ new Date(card.check_in_opens_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
@@ -319,13 +327,13 @@ function submitCustomCheckIn() {
           <article
             v-for="card in visibleSchedules"
             :key="card.schedule.schedule_id"
-            class="relative overflow-hidden rounded-[1.4rem] border border-white/80 bg-white/88 p-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.12)] sm:rounded-[1.75rem] sm:p-5"
+            class="relative overflow-hidden rounded-[1.4rem] border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.88)] p-3.5 shadow-[0_10px_24px_rgba(90,70,43,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(90,70,43,0.1)] sm:rounded-[1.75rem] sm:p-5"
             :class="{
-              'ring-2 ring-accent-300 shadow-[0_18px_34px_rgba(30,91,214,0.14)]': props.selectedScheduleId === card.schedule.schedule_id,
+              'ring-2 ring-[rgba(193,168,133,0.45)] shadow-[0_18px_34px_rgba(90,70,43,0.12)]': props.selectedScheduleId === card.schedule.schedule_id,
               'p-4': props.compact
             }"
           >
-            <div class="absolute inset-y-4 left-0 w-1 rounded-r-full bg-accent-500"></div>
+            <div class="absolute inset-y-4 left-0 w-1 rounded-r-full bg-[rgb(181,154,121)]"></div>
             <div class="ml-3 flex flex-col" :class="props.compact ? 'gap-3' : 'gap-4'">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
@@ -342,7 +350,7 @@ function submitCustomCheckIn() {
                     </span>
                     <span
                       v-if="card.schedule.schedule_uuid"
-                      class="inline-flex rounded-full bg-accent-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-700"
+                      class="inline-flex rounded-full bg-[rgba(245,236,224,0.9)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[rgb(122,90,54)]"
                     >
                       UUID
                     </span>
@@ -352,7 +360,7 @@ function submitCustomCheckIn() {
                     {{ card.schedule.teacher_name || "教师未标注" }} ·
                     {{ card.schedule.classroom_name || "地点未标注" }}
                   </p>
-                  <p v-if="card.schedule.lesson_units > 1" class="mt-2 text-xs font-medium text-accent-700">
+                  <p v-if="card.schedule.lesson_units > 1" class="mt-2 text-xs font-medium text-[rgb(122,90,54)]">
                     本堂课共 {{ card.schedule.lesson_units }} 课时
                   </p>
                 </div>
@@ -365,19 +373,19 @@ function submitCustomCheckIn() {
               </div>
 
               <div class="grid grid-cols-2 text-sm text-ink-600 sm:grid-cols-3" :class="props.compact ? 'gap-2' : 'gap-2.5 sm:gap-3'">
-                <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
+                <div class="rounded-2xl border border-[rgba(229,221,210,0.88)] bg-[rgba(250,245,238,0.88)] px-3.5 py-3 sm:px-4">
                   <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开始</p>
                   <p class="mt-2 font-medium text-ink-800">
                     {{ new Date(card.schedule.begins_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                   </p>
                 </div>
-                <div class="rounded-2xl bg-slate-50 px-3.5 py-3 sm:px-4">
+                <div class="rounded-2xl border border-[rgba(229,221,210,0.88)] bg-[rgba(250,245,238,0.88)] px-3.5 py-3 sm:px-4">
                   <p class="text-xs uppercase tracking-[0.2em] text-ink-400">结束</p>
                   <p class="mt-2 font-medium text-ink-800">
                     {{ new Date(card.schedule.ends_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
                   </p>
                 </div>
-                <div class="col-span-2 rounded-2xl bg-slate-50 px-3.5 py-3 sm:col-span-1 sm:px-4">
+                <div class="col-span-2 rounded-2xl border border-[rgba(229,221,210,0.88)] bg-[rgba(250,245,238,0.88)] px-3.5 py-3 sm:col-span-1 sm:px-4">
                   <p class="text-xs uppercase tracking-[0.2em] text-ink-400">开放打卡</p>
                   <p class="mt-2 font-medium text-ink-800">
                     {{ new Date(card.check_in_opens_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }}
@@ -416,7 +424,7 @@ function submitCustomCheckIn() {
       </div>
 
       <div v-else class="p-4 sm:p-6">
-        <div class="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50/80 px-6 py-10 text-center">
+        <div class="rounded-[1.75rem] border border-dashed border-[rgba(211,198,180,0.9)] bg-[rgba(250,245,238,0.84)] px-6 py-10 text-center">
           <p class="text-lg font-semibold text-ink-800">
             {{ props.search ? "没有匹配的课程" : props.viewMode === "week" ? "本周没有课表" : "当前日期没有课表" }}
           </p>
@@ -436,11 +444,11 @@ function submitCustomCheckIn() {
           <article
             v-for="course in courseDigest"
             :key="course.id"
-            class="rounded-3xl border border-white/70 bg-white/80 px-4 py-4"
+            class="rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4"
           >
             <p class="text-sm font-semibold text-ink-900">{{ course.name }}</p>
             <p class="mt-1 text-xs text-ink-500">{{ course.teacher }}</p>
-            <p class="mt-2 text-xs text-accent-700">待打卡 {{ course.pending }}</p>
+            <p class="mt-2 text-xs text-[rgb(122,90,54)]">待打卡 {{ course.pending }}</p>
           </article>
         </div>
       </div>
@@ -458,10 +466,14 @@ function submitCustomCheckIn() {
         <h3 class="text-lg font-semibold text-ink-950">自定义打卡</h3>
         <p class="mt-3 text-sm leading-6 text-ink-600">适合你已经明确知道目标课程的排课 ID 或 UUID 时手动补打卡。</p>
         <div class="mt-4 space-y-3">
-          <div class="inline-flex rounded-3xl border border-white/70 bg-white/90 p-1 shadow-[0_8px_20px_rgba(27,46,89,0.08)]">
+          <div class="inline-flex rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.92)] p-1 shadow-[0_8px_20px_rgba(90,70,43,0.06)]">
             <button
               class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
-              :class="customMode === 'uuid' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
+              :class="
+                customMode === 'uuid'
+                  ? 'bg-[rgb(57,47,38)] text-white shadow-[0_12px_22px_rgba(57,47,38,0.18)]'
+                  : 'text-ink-600'
+              "
               type="button"
               @click="customMode = 'uuid'"
             >
@@ -469,7 +481,11 @@ function submitCustomCheckIn() {
             </button>
             <button
               class="rounded-[1.1rem] px-3.5 py-2 text-sm font-semibold transition sm:px-4"
-              :class="customMode === 'id' ? 'bg-accent-600 text-white shadow-pane' : 'text-ink-600'"
+              :class="
+                customMode === 'id'
+                  ? 'bg-[rgb(57,47,38)] text-white shadow-[0_12px_22px_rgba(57,47,38,0.18)]'
+                  : 'text-ink-600'
+              "
               type="button"
               @click="customMode = 'id'"
             >

@@ -100,8 +100,8 @@ function renderAvailability() {
             : statusTone === 'error'
               ? 'border-rose-200 bg-rose-50 text-rose-700'
               : statusTone === 'active'
-                ? 'border-accent-200 bg-accent-50 text-accent-700'
-                : 'border-slate-200 bg-white/80 text-ink-500'
+                ? 'border-[rgba(211,194,171,0.88)] bg-[rgba(247,239,228,0.9)] text-[rgb(118,85,47)]'
+                : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] text-ink-500'
         "
       >
         <span
@@ -112,7 +112,7 @@ function renderAvailability() {
               : statusTone === 'error'
                 ? 'bg-rose-500'
                 : statusTone === 'active'
-                  ? 'bg-accent-500'
+                  ? 'bg-[rgb(151,118,79)]'
                   : 'bg-slate-300'
           "
         ></span>
@@ -121,7 +121,7 @@ function renderAvailability() {
     </div>
 
     <div class="mt-4 grid gap-3 md:grid-cols-[1.2fr_0.8fr]">
-      <article class="rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+      <article class="rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
         <p class="text-xs font-medium uppercase tracking-[0.18em] text-ink-400">当前候选课程</p>
         <template v-if="currentSchedule">
           <h4 class="mt-2 text-base font-semibold text-ink-900">{{ currentSchedule.course_name }}</h4>
@@ -141,7 +141,7 @@ function renderAvailability() {
         </template>
       </article>
 
-      <article class="rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+      <article class="rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
         <p class="text-xs font-medium uppercase tracking-[0.18em] text-ink-400">最近动作</p>
         <template v-if="automationSettings.lastAutoCheckAction">
           <p

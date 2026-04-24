@@ -39,10 +39,10 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
 
 <template>
   <transition name="dialog-fade">
-    <div v-if="open" class="fixed inset-0 z-40 bg-slate-950/24">
+    <div v-if="open" class="fixed inset-0 z-40 bg-[rgba(36,28,20,0.18)]">
       <div class="absolute inset-0 flex items-start justify-end p-0 md:p-6">
-        <aside class="flex h-full w-full flex-col border-l border-white/70 bg-white/96 shadow-fluent backdrop-blur-2xl md:h-[calc(100vh-3rem)] md:max-h-[920px] md:w-[31rem] md:rounded-[2rem]">
-          <div class="flex items-center justify-between border-b border-slate-200/70 px-5 py-4">
+        <aside class="flex h-full w-full flex-col border-l border-[rgba(224,214,198,0.88)] bg-[rgba(250,247,241,0.97)] shadow-fluent backdrop-blur-2xl md:h-[calc(100vh-3rem)] md:max-h-[920px] md:w-[31rem] md:rounded-[2rem]">
+          <div class="flex items-center justify-between border-b border-[rgba(224,214,198,0.8)] px-5 py-4">
             <div>
               <p class="text-xs uppercase tracking-[0.24em] text-ink-400">Application Settings</p>
               <h3 class="mt-1 text-lg font-semibold text-ink-950">偏好设置</h3>
@@ -56,11 +56,11 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
             <section class="glass-panel p-5">
               <h4 class="text-base font-semibold text-ink-950">自动打卡</h4>
               <div class="mt-4 space-y-4">
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="automationSettings.autoCheckInEnabled"
                     :disabled="automationLoading"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500 disabled:opacity-60"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)] disabled:opacity-60"
                     type="checkbox"
                   />
                   <span>
@@ -71,7 +71,7 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                   </span>
                 </label>
 
-                <label class="block rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="block rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <span class="block text-sm font-semibold text-ink-900">轮询间隔</span>
                   <span class="mt-1 block text-sm leading-6 text-ink-500">建议 30-90 秒。自动打卡只在应用运行期间生效，过短只会增加无效请求。</span>
                   <input
@@ -85,17 +85,21 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                   />
                 </label>
 
-                <div class="space-y-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <div class="space-y-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <span class="block text-sm font-semibold text-ink-900">自动打卡模式</span>
                   <label
                     v-for="option in modeOptions"
                     :key="`auto-${option.value}`"
                     class="flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-4 transition"
-                    :class="automationSettings.autoCheckInMode === option.value ? 'border-accent-300 bg-accent-50/80' : 'border-slate-200/80 bg-white/70'"
+                    :class="
+                      automationSettings.autoCheckInMode === option.value
+                        ? 'border-[rgba(201,179,149,0.9)] bg-[rgba(245,236,224,0.82)]'
+                        : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.76)]'
+                    "
                   >
                     <input
                       v-model="automationSettings.autoCheckInMode"
-                      class="mt-1 h-4 w-4 border-slate-300 text-accent-600 focus:ring-accent-500"
+                      class="mt-1 h-4 w-4 border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)]"
                       :value="option.value"
                       type="radio"
                     />
@@ -111,10 +115,10 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
             <section class="glass-panel p-5">
               <h4 class="text-base font-semibold text-ink-950">启动与恢复</h4>
               <div class="mt-4 space-y-4">
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="preferences.autoSyncOnLaunch"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)]"
                     type="checkbox"
                   />
                   <span>
@@ -125,10 +129,10 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                   </span>
                 </label>
 
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="preferences.rememberLastAccount"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)]"
                     type="checkbox"
                   />
                   <span>
@@ -144,11 +148,11 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
             <section v-if="desktopShell" class="glass-panel p-5">
               <h4 class="text-base font-semibold text-ink-950">桌面集成</h4>
               <div class="mt-4 space-y-4">
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="desktopSettings.autostartEnabled"
                     :disabled="desktopLoading || !desktopSettings.autostartAvailable"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500 disabled:opacity-60"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)] disabled:opacity-60"
                     type="checkbox"
                   />
                   <span>
@@ -163,11 +167,11 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                   </span>
                 </label>
 
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="desktopSettings.closeToTray"
                     :disabled="desktopLoading || !desktopSettings.closeToTrayAvailable"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500 disabled:opacity-60"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)] disabled:opacity-60"
                     type="checkbox"
                   />
                   <span>
@@ -187,10 +191,10 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
             <section class="glass-panel p-5">
               <h4 class="text-base font-semibold text-ink-950">课表与交互</h4>
               <div class="mt-4 space-y-4">
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="preferences.autoOpenCheckableSchedule"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)]"
                     type="checkbox"
                   />
                   <span>
@@ -201,10 +205,10 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                   </span>
                 </label>
 
-                <label class="flex items-start gap-3 rounded-3xl border border-white/70 bg-white/80 px-4 py-4">
+                <label class="flex items-start gap-3 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] px-4 py-4">
                   <input
                     v-model="preferences.compactScheduleCards"
-                    class="mt-1 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="mt-1 h-4 w-4 rounded border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)]"
                     type="checkbox"
                   />
                   <span>
@@ -224,11 +228,15 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                   v-for="option in modeOptions"
                   :key="option.value"
                   class="flex cursor-pointer items-start gap-3 rounded-3xl border px-4 py-4 transition"
-                  :class="preferences.defaultCheckInMode === option.value ? 'border-accent-300 bg-accent-50/80' : 'border-white/70 bg-white/80'"
+                  :class="
+                    preferences.defaultCheckInMode === option.value
+                      ? 'border-[rgba(201,179,149,0.9)] bg-[rgba(245,236,224,0.82)]'
+                      : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)]'
+                  "
                 >
                   <input
                     v-model="preferences.defaultCheckInMode"
-                    class="mt-1 h-4 w-4 border-slate-300 text-accent-600 focus:ring-accent-500"
+                    class="mt-1 h-4 w-4 border-[rgba(197,178,152,0.9)] text-[rgb(123,92,57)] focus:ring-[rgba(194,164,122,0.26)]"
                     :value="option.value"
                     type="radio"
                   />
@@ -245,7 +253,11 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
               <div class="mt-4 grid gap-3 sm:grid-cols-2">
                 <button
                   class="rounded-3xl border px-4 py-4 text-left transition"
-                  :class="preferences.defaultScheduleView === 'day' ? 'border-accent-300 bg-accent-50/80' : 'border-white/70 bg-white/80'"
+                  :class="
+                    preferences.defaultScheduleView === 'day'
+                      ? 'border-[rgba(201,179,149,0.9)] bg-[rgba(245,236,224,0.82)]'
+                      : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)]'
+                  "
                   type="button"
                   @click="preferences.defaultScheduleView = 'day'"
                 >
@@ -254,7 +266,11 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
                 </button>
                 <button
                   class="rounded-3xl border px-4 py-4 text-left transition"
-                  :class="preferences.defaultScheduleView === 'week' ? 'border-accent-300 bg-accent-50/80' : 'border-white/70 bg-white/80'"
+                  :class="
+                    preferences.defaultScheduleView === 'week'
+                      ? 'border-[rgba(201,179,149,0.9)] bg-[rgba(245,236,224,0.82)]'
+                      : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)]'
+                  "
                   type="button"
                   @click="preferences.defaultScheduleView = 'week'"
                 >
@@ -265,7 +281,7 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
             </section>
           </div>
 
-          <div class="flex items-center justify-between gap-3 border-t border-slate-200/70 px-5 py-4">
+          <div class="flex items-center justify-between gap-3 border-t border-[rgba(224,214,198,0.8)] px-5 py-4">
             <button class="secondary-btn" type="button" @click="emit('reset')">恢复默认</button>
             <button class="primary-btn" type="button" @click="emit('close')">完成</button>
           </div>

@@ -54,7 +54,7 @@ const automationStatus = computed(() => {
     <div class="glass-panel p-3.5 sm:p-5">
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
         <div class="min-w-0">
-          <p class="text-xs font-medium uppercase tracking-[0.18em] text-accent-700">当前登录</p>
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-[rgb(122,90,54)]">Current session</p>
           <h2 class="mt-2 text-lg font-semibold text-ink-950 sm:text-2xl">
             {{ props.dashboard.session.real_name }}
           </h2>
@@ -88,11 +88,11 @@ const automationStatus = computed(() => {
       </div>
 
       <div
-        class="mt-4 rounded-[1.5rem] border px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+        class="mt-4 rounded-[1.5rem] border px-4 py-3 shadow-[0_10px_24px_rgba(90,70,43,0.05)]"
         :class="
           automationStatus.active
-            ? 'border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(220,252,231,0.92))] text-emerald-700'
-            : 'border-slate-200 bg-white/88 text-ink-500'
+            ? 'border-[rgba(211,194,171,0.88)] bg-[linear-gradient(135deg,rgba(248,242,233,0.98),rgba(243,236,226,0.94))] text-[rgb(92,72,50)]'
+            : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.88)] text-ink-500'
         "
       >
         <div class="grid gap-3 md:grid-cols-[auto_minmax(0,1fr)] md:items-start">
@@ -101,13 +101,13 @@ const automationStatus = computed(() => {
               class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold sm:text-sm"
               :class="
                 automationStatus.active
-                  ? 'border-emerald-300/80 bg-white/70 text-emerald-700'
-                  : 'border-slate-200 bg-white/80 text-ink-500'
+                  ? 'border-[rgba(211,194,171,0.88)] bg-[rgba(255,252,247,0.84)] text-[rgb(118,85,47)]'
+                  : 'border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.84)] text-ink-500'
               "
             >
               <span
                 class="h-2 w-2 rounded-full"
-                :class="automationStatus.active ? 'bg-emerald-500' : 'bg-slate-300'"
+                :class="automationStatus.active ? 'bg-[rgb(151,118,79)]' : 'bg-slate-300'"
               ></span>
               {{ automationStatus.label }}
             </span>

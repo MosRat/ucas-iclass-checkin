@@ -49,21 +49,21 @@ async function copyDebugDetails() {
 
 <template>
   <transition name="dialog-fade">
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 px-4 py-8">
-      <div class="w-full max-w-xl rounded-4xl border border-white/80 bg-white/95 p-6 shadow-fluent backdrop-blur-2xl">
+    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(36,28,20,0.22)] px-4 py-8">
+      <div class="w-full max-w-xl rounded-4xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.96)] p-6 shadow-fluent backdrop-blur-2xl">
         <div
           class="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl"
           :class="{
             'bg-rose-100 text-rose-600': tone === 'error',
             'bg-emerald-100 text-emerald-600': tone === 'success',
-            'bg-accent-100 text-accent-600': tone !== 'error' && tone !== 'success'
+            'bg-[rgba(245,236,224,0.9)] text-[rgb(122,90,54)]': tone !== 'error' && tone !== 'success'
           }"
         >
           {{ tone === "error" ? "!" : tone === "success" ? "✓" : "i" }}
         </div>
         <h2 class="text-lg font-semibold text-ink-900">{{ title }}</h2>
         <p class="mt-2 whitespace-pre-line text-sm leading-6 text-ink-600">{{ message }}</p>
-        <details v-if="hasDebugDetails" class="mt-4 rounded-3xl border border-slate-200/80 bg-slate-50/85 p-4">
+        <details v-if="hasDebugDetails" class="mt-4 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(250,245,238,0.88)] p-4">
           <summary class="cursor-pointer list-none text-sm font-semibold text-ink-900">
             调试信息
           </summary>
