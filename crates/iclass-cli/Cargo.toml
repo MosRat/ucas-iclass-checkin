@@ -23,3 +23,6 @@ mimalloc = { version = "0.1.49", optional = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+
+[build-dependencies]
+embed-resource = "3.0.8"

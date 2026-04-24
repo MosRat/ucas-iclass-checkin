@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Maximize2, Minimize2, Minus, Settings2, X } from "lucide-vue-next";
+import appMarkUrl from "../assets/brand/app-mark.svg";
 
 const props = defineProps<{
   desktopShell: boolean;
@@ -39,8 +40,8 @@ function handlePointerDown(event: MouseEvent) {
     @mousedown="handlePointerDown"
   >
     <div class="flex min-w-0 flex-1 items-center gap-3">
-      <div class="flex h-10 w-10 items-center justify-center rounded-[1.35rem] border border-[rgba(222,209,191,0.95)] bg-[linear-gradient(180deg,rgba(255,252,247,0.98),rgba(243,236,226,0.98))] text-sm font-semibold text-[rgb(73,58,42)] shadow-[0_12px_24px_rgba(90,70,43,0.08)]">
-        Ic
+      <div class="flex h-10 w-10 items-center justify-center rounded-[1.35rem] border border-[rgba(222,209,191,0.95)] bg-[linear-gradient(180deg,rgba(255,252,247,0.98),rgba(243,236,226,0.98))] shadow-[0_12px_24px_rgba(90,70,43,0.08)]">
+        <img :src="appMarkUrl" alt="" class="h-6 w-6" />
       </div>
       <div class="min-w-0">
         <p class="truncate text-sm font-semibold tracking-[0.01em] text-ink-900">UCAS iCLASS</p>
