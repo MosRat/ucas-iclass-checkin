@@ -1,20 +1,18 @@
-# UCAS iCLASS API Notes
+# UCAS iCLASS API Reference
 
-This document summarizes the small subset of UCAS iCLASS HTTP behavior used by this project. It is intended for maintainers who need to understand the client implementation, not as a stable public API contract.
+This file records the subset of upstream HTTP behavior currently used by the workspace. It is a maintenance note, not a public contract.
 
 ## Base URL
-
-The default service base URL is:
 
 ```text
 https://iclass.ucas.edu.cn:8181
 ```
 
-Requests currently use multipart form bodies for login and query endpoints. Authenticated requests send the session token in the `sessionId` header.
+Authenticated requests send the session token in the `sessionId` header.
 
 ## Response Envelope
 
-Most endpoints return a shared envelope:
+Successful responses usually look like:
 
 ```json
 {
@@ -23,26 +21,24 @@ Most endpoints return a shared envelope:
 }
 ```
 
-For failures:
+Error responses usually look like:
 
 ```json
 {
   "STATUS": "1",
   "ERRCODE": "101",
-  "ERRMSG": "二维码已失效！"
+  "ERRMSG": "..."
 }
 ```
 
-Known business codes handled by the client:
+Observed business codes currently normalized by the client:
 
-| Code | Meaning |
+| Code | Handling |
 | --- | --- |
-| `0` / `STATUS == "0"` | Success. |
-| `2` | Empty schedule collection. The client normalizes this to an empty list for schedule queries. |
-| `101` | Check-in QR code is expired, invalid, or outside the valid time window. |
-| `107` | Invalid password observed on login. |
-
-Other nonzero responses should be surfaced with both `ERRCODE` and `ERRMSG`.
+| `0` | Success |
+| `2` | Empty schedule collection |
+| `101` | Expired or invalid attendance token / request |
+| `107` | Invalid password |
 
 ## Authentication
 
@@ -50,21 +46,21 @@ Other nonzero responses should be surfaced with both `ERRCODE` and `ERRMSG`.
 
 Form fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `phone` | Student account. |
-| `password` | Password. |
+| `phone` | Account |
+| `password` | Password |
 
-Useful response fields:
+Response fields retained by the client:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `result.id` | User ID used by later requests. |
-| `result.sessionId` | Session token sent as the `sessionId` header. |
-| `result.userName` | Login account name. |
-| `result.realName` / `result.nickName` | Display name. |
-| `result.classId`, `result.classInfoName`, `result.classUUID` | Optional class metadata. |
-| `result.picUrl` | Optional avatar URL. |
+| `result.id` | User ID |
+| `result.sessionId` | Session token |
+| `result.userName` | Account |
+| `result.realName` / `result.nickName` | Display name |
+| `result.classId`, `result.classInfoName`, `result.classUUID` | Optional class metadata |
+| `result.picUrl` | Optional avatar URL |
 
 ## Semesters
 
@@ -72,18 +68,18 @@ Useful response fields:
 
 Form fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `userId` | User ID from login. |
+| `userId` | User ID from login |
 
 Useful response fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `code` | Semester code. |
-| `name` | Semester name. |
-| `beginDate`, `endDate` | Date range, formatted as `YYYY-MM-DD`. |
-| `yearStatus` | `1` means current semester. |
+| `code` | Semester code |
+| `name` | Semester name |
+| `beginDate`, `endDate` | `YYYY-MM-DD` |
+| `yearStatus` | `1` means current semester |
 
 ## Courses
 
@@ -91,85 +87,104 @@ Useful response fields:
 
 Headers:
 
-| Header | Description |
+| Header | Notes |
 | --- | --- |
-| `sessionId` | Session token from login. |
+| `sessionId` | Session token |
 
 Form fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `id` | User ID from login. |
+| `id` | User ID |
 
 Useful response fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `id` | Course ID. |
-| `courseName` | Course display name. |
-| `courseNum` | Optional catalog number. |
-| `teacherName` | Optional teacher name. |
-| `classroomName` | Optional classroom. |
-| `beginDate`, `endDate` | Optional date range, usually formatted as `YYYYMMDD`. |
-| `myNoSignNum` | Optional pending check-in count. |
+| `id` | Course ID |
+| `courseName` | Name |
+| `courseNum` | Optional catalog number |
+| `teacherName` | Optional teacher |
+| `classroomName` | Optional classroom |
+| `beginDate`, `endDate` | Optional date range |
+| `myNoSignNum` | Optional pending count |
 
 ## Schedules
 
 ### `POST /app/course/get_stu_course_sched.action`
 
-Fetches schedule rows for one day.
+Returns schedule rows for one day.
 
 ### `POST /app/course/get_stu_course_sched_week.action`
 
-Fetches a weekly schedule view anchored at the provided date. The client flattens the weekly response into schedule rows.
+Returns a weekly view anchored at a date.
 
 Headers:
 
-| Header | Description |
+| Header | Notes |
 | --- | --- |
-| `sessionId` | Session token from login. |
+| `sessionId` | Session token |
 
 Form fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `id` | User ID from login. |
-| `dateStr` | Date formatted as `YYYYMMDD`. |
+| `id` | User ID |
+| `dateStr` | `YYYYMMDD` |
 
-Useful schedule fields:
+Useful response fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `id` | Numeric schedule ID. Used by ID-based check-in. |
-| `uuid` | UUID-style schedule ID. Used by UUID-based check-in. |
-| `courseId` | Optional course ID. |
-| `courseName` | Course display name. |
-| `teacherName` | Optional teacher name. |
-| `classroomName` | Optional classroom. |
-| `teachTime` | Teaching day, formatted as `YYYY-MM-DD`. |
-| `classBeginTime`, `classEndTime` | Local datetime fields, formatted as `YYYY-MM-DD HH:MM:SS`. |
-| `signStatus` | Raw attendance status string. |
+| `id` | Schedule ID |
+| `uuid` | Schedule UUID |
+| `courseId` | Optional course ID |
+| `courseName` | Course name |
+| `teacherName` | Optional teacher |
+| `classroomName` | Optional classroom |
+| `teachTime` | `YYYY-MM-DD` |
+| `classBeginTime`, `classEndTime` | `YYYY-MM-DD HH:MM:SS` |
+| `signStatus` | `1` observed as signed, `0` as unsigned |
 
-The project normalizes repeated fixed-period rows into a single logical lesson when the course name and time range match.
+Implementation note:
 
-## Check-In
+- The daily endpoint is treated as the source of truth for `signStatus` when weekly data is inconsistent.
+- Repeated fixed-period rows with the same course name and time range are merged into one logical lesson in the Rust layer.
 
-Both check-in modes use the same endpoint.
+## Timestamp Sync
+
+### `POST /app/common/get_timestamp.do`
+
+Form fields:
+
+| Field | Notes |
+| --- | --- |
+| `id` | User ID |
+
+Useful response fields:
+
+| Field | Notes |
+| --- | --- |
+| `timestamp` | Server-side Unix time in milliseconds |
+
+The client samples this endpoint after login / session refresh and may apply a conservative local offset for later request timestamps.
+
+## Attendance Request
 
 ### `GET /app/course/stu_scan_sign.action`
 
 Headers:
 
-| Header | Description |
+| Header | Notes |
 | --- | --- |
-| `sessionId` | Session token from login. |
+| `sessionId` | Session token |
 
 Common query parameters:
 
-| Parameter | Description |
+| Parameter | Notes |
 | --- | --- |
-| `id` | User ID from login. |
-| `timestamp` | Current request timestamp in milliseconds, generated by `iclass-api` at send time. |
+| `id` | User ID |
+| `timestamp` | Millisecond timestamp generated at request time |
 
 Mode-specific query parameters:
 
@@ -178,15 +193,13 @@ Mode-specific query parameters:
 | UUID mode | `timeTableId=<schedule.uuid>` |
 | ID mode | `courseSchedId=<schedule.id>` |
 
-Useful success fields:
+Useful response fields:
 
-| Field | Description |
+| Field | Notes |
 | --- | --- |
-| `result.stuSignId` | Optional upstream attendance record ID. |
-| `result.stuSignStatus` | `1` has been observed for signed-in status. |
+| `result.stuSignId` | Optional upstream record ID |
+| `result.stuSignStatus` | `1` observed as signed |
 
-## Implementation Notes
+## Data Scope
 
-The Rust client intentionally keeps only fields required by the CLI, GUI, session refresh, and check-in flows. Do not mirror entire upstream payloads unless a field is actively needed by a user-facing feature or a test.
-
-Schedule and semester payloads may contain stale or inconsistent display metadata. Prefer explicit date and time fields for logic.
+Only fields required by the current CLI, GUI, session, and tests should be modeled. Do not mirror full upstream payloads unless a concrete caller needs them.

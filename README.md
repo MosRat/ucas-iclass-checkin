@@ -1,57 +1,39 @@
-Warning: This project is provided for learning and research only. The author does not guarantee the origin, stability, accuracy, legality, or continued availability of any upstream API or related service behavior. Use it at your own risk and follow the rules that apply to your environment.
+Warning: This repository is provided for learning and local experimentation only. No guarantee is made about upstream API origin, stability, correctness, legality, or continued availability. Use it only in ways allowed by your environment and policies.
 
-# UCAS iCLASS Check-in
+# UCAS iCLASS Workspace
 
-A Rust workspace for local access to UCAS iCLASS.
-
-## Scope
-
-This repository contains:
-
-- Rust core crates
-- a CLI entrypoint
-- a Tauri-based GUI app
-
-It is intended for local use on your own device. It does not provide any hosted service, cloud sync, or shared account system.
-
-## Repository Layout
-
-- `crates/`
-  Core libraries and the CLI.
-- `apps/iclass-gui/`
-  Tauri GUI application.
-- `docs/`
-  Local API notes and reference material.
-
-## Quick Start
-
-### Requirements
+## Requirements
 
 - Rust stable
 - Node.js 22+
 - pnpm
 
-Android builds also require Java 17 and a working Android SDK / NDK setup.
+For Android builds:
 
-### Environment
+- Java 17
+- Android SDK / NDK
 
-Copy `.env.example` to `.env` and fill in your own local values.
+## Setup
+
+Create a local environment file:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Do not commit real credentials, session files, logs, or signing materials.
+Do not commit credentials, session data, logs, signing files, or local secrets.
 
-### CLI
+## Run
+
+CLI:
 
 ```powershell
 cargo run -p iclass-cli -- login
 cargo run -p iclass-cli -- courses
-cargo run -p iclass-cli -- checkin
+cargo run -p iclass-cli -- session
 ```
 
-### GUI
+GUI:
 
 ```powershell
 cd apps/iclass-gui
@@ -61,7 +43,7 @@ pnpm tauri dev
 
 ## Build
 
-### Rust
+Workspace checks:
 
 ```powershell
 cargo fmt --all --check
@@ -69,7 +51,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-### GUI
+GUI bundles:
 
 ```powershell
 cd apps/iclass-gui
@@ -77,19 +59,21 @@ pnpm build
 pnpm tauri build
 ```
 
-### Release Artifacts
+## Release
 
-Tagged releases include desktop GUI bundles, Android bundles, desktop CLI bundles, and the agent skill bundle.
+Use the version bump script from the repository root:
 
-The Linux CLI bundle targets `x86_64-unknown-linux-musl` and is built with `cargo zigbuild` to avoid glibc compatibility issues across distributions. The macOS CLI bundle also uses `cargo zigbuild`; the Windows CLI bundle keeps the native MSVC build because cargo-zigbuild currently supports Linux and macOS targets, not Windows targets.
+```powershell
+uv run --script scripts/bump-version.py --version 0.1.10
+```
 
-The desktop GUI build remains on the Tauri default cargo runner. Tauri `build` supports `--runner`, but the GUI bundle includes platform installer tooling and Linux WebKit/pkg-config dependencies, so switching the GUI to zigbuild should be tested separately before it becomes part of release.
+This updates the workspace version, creates a commit, creates an `app-v<version>` tag, and pushes both to trigger the release workflow.
 
-## Privacy
+## Repository
 
-- Keep credentials and session data on your own device.
-- Do not publish account data, tokens, logs, QR data, or signing files.
-- If you use CI for Android signing, store secrets in the CI secret manager.
+- `crates/` Rust libraries and CLI
+- `apps/iclass-gui/` Tauri application
+- `docs/api/` local API notes used by maintainers
 
 ## License
 
