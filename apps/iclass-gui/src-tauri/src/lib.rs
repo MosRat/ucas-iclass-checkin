@@ -16,7 +16,14 @@ use tauri::Manager;
 /// Runs the Tauri desktop application.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tracing_setup::plugin());
+    let builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        desktop::show_main_window_from_app(app);
+    }));
+
+    let builder = builder.plugin(tracing_setup::plugin());
 
     #[cfg(all(
         feature = "desktop-autostart",

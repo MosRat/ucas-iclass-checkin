@@ -150,6 +150,14 @@ fn show_main_window(window: &WebviewWindow) {
     let _ = window.set_focus();
 }
 
+/// Restores the main window when the app is re-opened from the tray or a second launch attempt.
+#[cfg(desktop)]
+pub(crate) fn show_main_window_from_app(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        show_main_window(&window);
+    }
+}
+
 /// Hides the main window and keeps the process alive in the tray.
 #[cfg(desktop)]
 fn hide_main_window(window: &WebviewWindow) {
