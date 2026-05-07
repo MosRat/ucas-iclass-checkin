@@ -296,6 +296,7 @@ impl IClassApiClient {
         let http = Client::builder()
             .user_agent(UCAS_BROWSER_USER_AGENT)
             .http1_only()
+            .pool_max_idle_per_host(0)
             .build()?;
         Ok(Self {
             base_url: Url::parse(base_url.as_ref())?,

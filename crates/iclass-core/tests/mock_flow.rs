@@ -97,6 +97,17 @@ async fn best_schedule_recovers_from_expired_session_and_falls_back_to_weekly() 
         })
         .await;
 
+    let _timestamp_sync = server
+        .mock_async(|when, then| {
+            when.method(POST)
+                .path("/app/common/get_timestamp.do")
+                .header("sessionId", "fresh-session");
+            then.status(200)
+                .header("content-type", "application/json")
+                .body(r#"{"STATUS":"0","timestamp":1770000000000}"#);
+        })
+        .await;
+
     let fresh_daily_empty = server
         .mock_async(|when, then| {
             when.method(POST)
