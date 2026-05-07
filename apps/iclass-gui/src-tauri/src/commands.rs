@@ -247,6 +247,7 @@ pub(crate) async fn get_automation_settings(
         persisted,
         state.auto_check_last_action(),
         state.auto_check_status(),
+        state.core.timestamp_adjustment(),
     ))
 }
 
@@ -285,6 +286,7 @@ pub(crate) async fn update_automation_settings(
         normalized,
         state.auto_check_last_action(),
         state.auto_check_status(),
+        state.core.timestamp_adjustment(),
     ))
 }
 

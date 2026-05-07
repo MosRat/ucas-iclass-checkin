@@ -125,6 +125,8 @@ export interface AutoCheckCurrentStatus {
   checkInOpensAt?: string | null;
   canCheckIn: boolean;
   isSignedIn: boolean;
+  timestampOffsetMs: number;
+  timestampRoundTripMs?: number | null;
 }
 
 export interface CheckInViewModel {

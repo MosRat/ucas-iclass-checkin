@@ -3,14 +3,18 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 use chrono::{DateTime, Utc};
-use iclass_api::{ApiError, IClassApiClient};
+use iclass_api::{ApiError, IClassApiClient, TimestampAdjustment, TimestampFeedback};
 use iclass_domain::{CheckInReceipt, Course, Credentials, ScheduleEntry, Semester, Session};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing::warn;
+use tracing::{debug, warn};
+
+const MAX_CHECK_IN_ATTEMPTS: usize = 6;
+const CHECK_IN_RETRY_DELAY_MS: u64 = 250;
 
 /// Stable classification of session-layer failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,6 +113,24 @@ impl SessionError {
             SessionErrorKind::QrExpired | SessionErrorKind::Parameter
         )
     }
+
+    /// Returns the timestamp feedback implied by this error, when known.
+    pub fn timestamp_feedback(&self) -> Option<TimestampFeedback> {
+        match self {
+            Self::Api(error) => error.timestamp_feedback().or_else(|| match self.kind() {
+                SessionErrorKind::Parameter => Some(TimestampFeedback::TooFarAhead),
+                SessionErrorKind::QrExpired => Some(TimestampFeedback::TooFarBehind),
+                _ => None,
+            }),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CheckInTarget<'a> {
+    Uuid(&'a str),
+    Id(&'a str),
 }
 
 /// JSON-backed storage for persisted session and credential state.
@@ -218,6 +240,11 @@ impl SessionClient {
     /// Returns the underlying persistent store.
     pub fn store(&self) -> &SessionStore {
         &self.store
+    }
+
+    /// Returns the current check-in timestamp adjustment estimate.
+    pub fn timestamp_adjustment(&self) -> TimestampAdjustment {
+        self.api.timestamp_adjustment()
     }
 
     /// Loads the raw persisted state from disk.
@@ -334,47 +361,19 @@ impl SessionClient {
         }
     }
 
-    /// Attempts UUID-based check-in, retrying once after re-login when appropriate.
+    /// Attempts UUID-based check-in, retrying after timestamp, network, or session recovery.
     pub async fn check_in_by_uuid(
         &self,
         schedule_uuid: &str,
     ) -> Result<CheckInReceipt, SessionError> {
-        let session = self.ensure_session().await?;
-        match self.api.check_in_by_uuid(&session, schedule_uuid).await {
-            Ok(value) => Ok(value),
-            Err(error) => {
-                let error = SessionError::from(error);
-                if error.should_retry_with_timestamp_sync() {
-                    self.synchronize_timestamp_offset(&session).await;
-                    return Ok(self.api.check_in_by_uuid(&session, schedule_uuid).await?);
-                }
-                if error.should_retry_with_relogin() {
-                    let session = self.refresh_session().await?;
-                    return Ok(self.api.check_in_by_uuid(&session, schedule_uuid).await?);
-                }
-                Err(error)
-            }
-        }
+        self.check_in_with_retries(CheckInTarget::Uuid(schedule_uuid))
+            .await
     }
 
-    /// Attempts ID-based check-in, retrying once after re-login when appropriate.
+    /// Attempts ID-based check-in, retrying after timestamp, network, or session recovery.
     pub async fn check_in_by_id(&self, schedule_id: &str) -> Result<CheckInReceipt, SessionError> {
-        let session = self.ensure_session().await?;
-        match self.api.check_in_by_id(&session, schedule_id).await {
-            Ok(value) => Ok(value),
-            Err(error) => {
-                let error = SessionError::from(error);
-                if error.should_retry_with_timestamp_sync() {
-                    self.synchronize_timestamp_offset(&session).await;
-                    return Ok(self.api.check_in_by_id(&session, schedule_id).await?);
-                }
-                if error.should_retry_with_relogin() {
-                    let session = self.refresh_session().await?;
-                    return Ok(self.api.check_in_by_id(&session, schedule_id).await?);
-                }
-                Err(error)
-            }
-        }
+        self.check_in_with_retries(CheckInTarget::Id(schedule_id))
+            .await
     }
 
     /// Resolves the best available credentials source for a forced refresh.
@@ -394,6 +393,83 @@ impl SessionClient {
             warn!(error = %error, "failed to synchronize iCLASS timestamp offset");
         }
     }
+
+    async fn check_in_with_retries(
+        &self,
+        target: CheckInTarget<'_>,
+    ) -> Result<CheckInReceipt, SessionError> {
+        let mut session = self.ensure_session().await?;
+        self.synchronize_timestamp_offset(&session).await;
+
+        for attempt_index in 0..MAX_CHECK_IN_ATTEMPTS {
+            match self.send_check_in(&session, target).await {
+                Ok(receipt) => return Ok(receipt),
+                Err(error) => {
+                    let error = SessionError::from(error);
+                    let has_more_attempts = attempt_index + 1 < MAX_CHECK_IN_ATTEMPTS;
+                    if !has_more_attempts {
+                        return Err(error);
+                    }
+
+                    if error.should_retry_with_relogin() {
+                        debug!(
+                            attempt = attempt_index + 1,
+                            ?target,
+                            "check-in failed with session error; refreshing session before retry"
+                        );
+                        session = self.refresh_session().await?;
+                        self.synchronize_timestamp_offset(&session).await;
+                        pause_before_check_in_retry().await;
+                        continue;
+                    }
+
+                    if let Some(feedback) = error.timestamp_feedback() {
+                        debug!(
+                            attempt = attempt_index + 1,
+                            ?target,
+                            ?feedback,
+                            "check-in failed with timestamp-like business error; adjusting before retry"
+                        );
+                        self.synchronize_timestamp_offset(&session).await;
+                        self.api.apply_timestamp_feedback(feedback);
+                        pause_before_check_in_retry().await;
+                        continue;
+                    }
+
+                    if matches!(error.kind(), SessionErrorKind::Transport) {
+                        debug!(
+                            attempt = attempt_index + 1,
+                            ?target,
+                            "check-in failed with transport error; retrying"
+                        );
+                        pause_before_check_in_retry().await;
+                        continue;
+                    }
+
+                    return Err(error);
+                }
+            }
+        }
+
+        unreachable!("check-in retry loop either returns a receipt or the last error");
+    }
+
+    async fn send_check_in(
+        &self,
+        session: &Session,
+        target: CheckInTarget<'_>,
+    ) -> Result<CheckInReceipt, ApiError> {
+        match target {
+            CheckInTarget::Uuid(schedule_uuid) => {
+                self.api.check_in_by_uuid(session, schedule_uuid).await
+            }
+            CheckInTarget::Id(schedule_id) => self.api.check_in_by_id(session, schedule_id).await,
+        }
+    }
+}
+
+async fn pause_before_check_in_retry() {
+    tokio::time::sleep(Duration::from_millis(CHECK_IN_RETRY_DELAY_MS)).await;
 }
 
 /// Returns the default location for persisted session state.

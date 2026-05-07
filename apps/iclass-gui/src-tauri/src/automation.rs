@@ -224,6 +224,7 @@ fn update_auto_check_status(
         settings,
         state.auto_check_last_action(),
         state.auto_check_status(),
+        state.core.timestamp_adjustment(),
     );
     if let Err(error) = app.emit("automation://status-updated", payload) {
         warn!(error = %error, "failed to emit automation status update");

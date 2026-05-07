@@ -24,7 +24,9 @@ use tracing::debug;
 
 const APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS: i64 = 500;
 const MAX_CLOCK_SYNC_RTT_MS: i64 = 5_000;
-const TIMESTAMP_SAFETY_MARGIN_MS: i64 = 750;
+const MIN_TIMESTAMP_SAFETY_MARGIN_MS: i64 = 250;
+const MAX_TIMESTAMP_SAFETY_MARGIN_MS: i64 = 1_500;
+const TIMESTAMP_FEEDBACK_STEP_MS: i64 = 1_000;
 const UCAS_ORIGIN: &str = "https://servicewechat.com";
 const UCAS_REFERER: &str = "https://servicewechat.com/wxdd3bd7d4acf54723/57/page-frame.html";
 const UCAS_BROWSER_USER_AGENT: &str = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Mobile Safari/537.36 MicroMessenger/8.0.54.2800(0x2800363D) NetType/WIFI MiniProgramEnv/Android";
@@ -57,6 +59,24 @@ pub enum ApiErrorKind {
     Business,
     /// Local normalization or payload-shape parsing failure.
     Parse,
+}
+
+/// Directional feedback learned from check-in timestamp business errors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimestampFeedback {
+    /// The upstream service rejected a timestamp that appears too far ahead.
+    TooFarAhead,
+    /// The upstream service treated the QR/sign-in timestamp as already expired.
+    TooFarBehind,
+}
+
+/// Latest local estimate of the server-clock adjustment used for check-in timestamps.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TimestampAdjustment {
+    /// Milliseconds added to local UNIX time before sending a check-in timestamp.
+    pub offset_ms: i64,
+    /// Round-trip time of the most recent successful server timestamp sample.
+    pub round_trip_ms: Option<i64>,
 }
 
 /// Errors produced while talking to the upstream iCLASS HTTP API.
@@ -102,11 +122,18 @@ impl ApiError {
             Self::Url(_) => ApiErrorKind::Url,
             Self::Parse { .. } => ApiErrorKind::Parse,
             Self::Business { code, message, .. } => {
-                let message = message.to_ascii_lowercase();
-                if matches!(code.as_str(), "100" | "PARAMETER") || message.contains("参数") {
-                    ApiErrorKind::Parameter
-                } else if matches!(code.as_str(), "101" | "102") {
+                let code = code.trim().to_ascii_uppercase();
+                let message = normalize_error_text(message);
+                if is_qr_expired_error_code(&code)
+                    || looks_like_qr_expired_error(&message)
+                    || looks_like_too_far_behind_error(&message)
+                {
                     ApiErrorKind::QrExpired
+                } else if is_parameter_error_code(&code)
+                    || looks_like_parameter_error(&message)
+                    || looks_like_too_far_ahead_error(&message)
+                {
+                    ApiErrorKind::Parameter
                 } else if matches!(code.as_str(), "2") {
                     ApiErrorKind::EmptySchedule
                 } else if matches!(code.as_str(), "401" | "403")
@@ -192,6 +219,28 @@ impl ApiError {
         self.kind() == ApiErrorKind::Parameter
     }
 
+    /// Returns timestamp adjustment feedback implied by a business error, when known.
+    pub fn timestamp_feedback(&self) -> Option<TimestampFeedback> {
+        match self {
+            Self::Business { code, message, .. } => {
+                let code = code.trim().to_ascii_uppercase();
+                let message = normalize_error_text(message);
+                if looks_like_too_far_ahead_error(&message) {
+                    Some(TimestampFeedback::TooFarAhead)
+                } else if looks_like_too_far_behind_error(&message) {
+                    Some(TimestampFeedback::TooFarBehind)
+                } else if is_parameter_error_code(&code) || looks_like_parameter_error(&message) {
+                    Some(TimestampFeedback::TooFarAhead)
+                } else if is_qr_expired_error_code(&code) || looks_like_qr_expired_error(&message) {
+                    Some(TimestampFeedback::TooFarBehind)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
     /// Returns whether the request is worth retrying after forcing a fresh login.
     pub fn should_retry_with_relogin(&self) -> bool {
         matches!(self.kind(), ApiErrorKind::Authentication)
@@ -232,6 +281,7 @@ pub struct IClassApiClient {
     base_url: Url,
     http: Client,
     timestamp_offset_ms: Arc<AtomicI64>,
+    timestamp_round_trip_ms: Arc<AtomicI64>,
 }
 
 impl Default for IClassApiClient {
@@ -251,6 +301,7 @@ impl IClassApiClient {
             base_url: Url::parse(base_url.as_ref())?,
             http,
             timestamp_offset_ms: Arc::new(AtomicI64::new(0)),
+            timestamp_round_trip_ms: Arc::new(AtomicI64::new(-1)),
         })
     }
 
@@ -486,10 +537,17 @@ impl IClassApiClient {
             server_timestamp_ms,
         )
         .unwrap_or(0);
+        let round_trip_ms = local_received_at_ms.saturating_sub(local_sent_at_ms);
         self.timestamp_offset_ms.store(offset_ms, Ordering::Relaxed);
+        self.timestamp_round_trip_ms
+            .store(round_trip_ms, Ordering::Relaxed);
         debug!(
             local_sent_at_ms,
-            local_received_at_ms, server_timestamp_ms, offset_ms, "updated iCLASS timestamp offset"
+            local_received_at_ms,
+            server_timestamp_ms,
+            round_trip_ms,
+            offset_ms,
+            "updated iCLASS timestamp offset"
         );
         Ok(offset_ms)
     }
@@ -497,6 +555,32 @@ impl IClassApiClient {
     /// Returns the currently applied local timestamp offset in milliseconds.
     pub fn timestamp_offset_ms(&self) -> i64 {
         self.timestamp_offset_ms.load(Ordering::Relaxed)
+    }
+
+    /// Returns the current timestamp adjustment estimate for status display.
+    pub fn timestamp_adjustment(&self) -> TimestampAdjustment {
+        let round_trip_ms = self.timestamp_round_trip_ms.load(Ordering::Relaxed);
+        TimestampAdjustment {
+            offset_ms: self.timestamp_offset_ms(),
+            round_trip_ms: (round_trip_ms >= 0).then_some(round_trip_ms),
+        }
+    }
+
+    /// Applies directional feedback from a failed check-in before the next retry.
+    pub fn apply_timestamp_feedback(&self, feedback: TimestampFeedback) -> i64 {
+        let delta_ms = match feedback {
+            TimestampFeedback::TooFarAhead => -TIMESTAMP_FEEDBACK_STEP_MS,
+            TimestampFeedback::TooFarBehind => TIMESTAMP_FEEDBACK_STEP_MS,
+        };
+        let updated = self
+            .timestamp_offset_ms
+            .fetch_add(delta_ms, Ordering::Relaxed)
+            .saturating_add(delta_ms);
+        debug!(
+            ?feedback,
+            updated, "adjusted iCLASS timestamp offset from business feedback"
+        );
+        updated
     }
 
     /// Resolves an API-relative path against the configured base URL.
@@ -870,6 +954,78 @@ fn build_response_summary(response: &reqwest::Response) -> String {
     )
 }
 
+fn normalize_error_text(value: &str) -> String {
+    value
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|value| !value.is_whitespace() && !value.is_ascii_punctuation())
+        .collect()
+}
+
+fn is_parameter_error_code(code: &str) -> bool {
+    matches!(
+        code,
+        "100" | "PARAMETER" | "PARAM" | "PARAM_ERROR" | "INVALID_PARAMETER" | "INVALID_PARAM"
+    )
+}
+
+fn is_qr_expired_error_code(code: &str) -> bool {
+    matches!(
+        code,
+        "101" | "102" | "QR_EXPIRED" | "QRCODE_EXPIRED" | "SIGN_EXPIRED"
+    )
+}
+
+fn looks_like_parameter_error(message: &str) -> bool {
+    message.contains("参数")
+        || message.contains("parameter")
+        || message.contains("param")
+        || message.contains("timestamp")
+        || message.contains("时间戳")
+        || message.contains("时间参数")
+        || message.contains("非法")
+        || message.contains("invalid")
+}
+
+fn looks_like_qr_expired_error(message: &str) -> bool {
+    let mentions_qr_or_sign = message.contains("二维码")
+        || message.contains("签到码")
+        || message.contains("扫码")
+        || message.contains("qrcode")
+        || message.contains("qr")
+        || message.contains("sign");
+    let mentions_expiry = message.contains("失效")
+        || message.contains("过期")
+        || message.contains("超时")
+        || message.contains("超过有效")
+        || message.contains("有效期")
+        || message.contains("有效时间")
+        || message.contains("expired")
+        || message.contains("timeout")
+        || message.contains("invalid");
+
+    mentions_qr_or_sign && mentions_expiry
+}
+
+fn looks_like_too_far_ahead_error(message: &str) -> bool {
+    (message.contains("时间") || message.contains("timestamp"))
+        && (message.contains("超前")
+            || message.contains("过大")
+            || message.contains("未来")
+            || message.contains("ahead")
+            || message.contains("future"))
+}
+
+fn looks_like_too_far_behind_error(message: &str) -> bool {
+    (message.contains("时间") || message.contains("timestamp"))
+        && (message.contains("落后")
+            || message.contains("过小")
+            || message.contains("过期")
+            || message.contains("失效")
+            || message.contains("behind")
+            || message.contains("expired"))
+}
+
 fn estimate_timestamp_offset_ms(
     local_sent_at_ms: i64,
     local_received_at_ms: i64,
@@ -884,10 +1040,17 @@ fn estimate_timestamp_offset_ms(
         return Some(0);
     }
 
-    // Bias toward a slightly older timestamp so we avoid getting ahead of the
-    // server clock, which the upstream endpoint rejects as a parameter error.
-    let safe_server_timestamp_ms = server_timestamp_ms.saturating_sub(TIMESTAMP_SAFETY_MARGIN_MS);
-    let offset_ms = safe_server_timestamp_ms - local_received_at_ms;
+    // Use the local midpoint to account for network delay, then keep a small
+    // adaptive margin so jitter is less likely to push us ahead of the server.
+    let local_midpoint_ms = local_sent_at_ms.saturating_add(round_trip_ms / 2);
+    let safety_margin_ms = (round_trip_ms / 2)
+        .saturating_add(MIN_TIMESTAMP_SAFETY_MARGIN_MS)
+        .clamp(
+            MIN_TIMESTAMP_SAFETY_MARGIN_MS,
+            MAX_TIMESTAMP_SAFETY_MARGIN_MS,
+        );
+    let safe_server_timestamp_ms = server_timestamp_ms.saturating_sub(safety_margin_ms);
+    let offset_ms = safe_server_timestamp_ms - local_midpoint_ms;
     if offset_ms.abs() < APPLY_TIMESTAMP_OFFSET_THRESHOLD_MS {
         Some(0)
     } else {
@@ -962,9 +1125,9 @@ mod tests {
     #[test]
     fn estimate_timestamp_offset_uses_midpoint_and_threshold() {
         let offset = estimate_timestamp_offset_ms(1_000, 1_200, 3_100).expect("valid offset");
-        assert_eq!(offset, 1_150);
+        assert_eq!(offset, 1_650);
 
-        let tiny_offset = estimate_timestamp_offset_ms(1_000, 1_200, 2_250).expect("valid offset");
+        let tiny_offset = estimate_timestamp_offset_ms(1_000, 1_200, 1_550).expect("valid offset");
         assert_eq!(tiny_offset, 0);
     }
 
@@ -984,5 +1147,29 @@ mod tests {
 
         assert!(error.is_qr_expired());
         assert_eq!(error.kind(), ApiErrorKind::QrExpired);
+    }
+
+    #[test]
+    fn recognizes_fuzzy_qr_expired_business_error() {
+        let error = ApiError::Business {
+            code: "SIGN_EXPIRED".into(),
+            message: "签到码超过有效时间".into(),
+            request_summary: None,
+        };
+
+        assert!(error.is_qr_expired());
+        assert_eq!(error.kind(), ApiErrorKind::QrExpired);
+    }
+
+    #[test]
+    fn recognizes_fuzzy_parameter_business_error() {
+        let error = ApiError::Business {
+            code: "INVALID_PARAM".into(),
+            message: "timestamp invalid".into(),
+            request_summary: None,
+        };
+
+        assert!(error.is_parameter_error());
+        assert_eq!(error.kind(), ApiErrorKind::Parameter);
     }
 }

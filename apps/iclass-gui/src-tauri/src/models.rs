@@ -1,6 +1,7 @@
 //! Request and response payloads used by the Tauri GUI commands.
 
 use chrono::Local;
+use iclass_api::TimestampAdjustment;
 use iclass_domain::CheckInAvailability;
 use iclass_domain::{CheckInMode, ScheduleEntry};
 use serde::{Deserialize, Serialize};
@@ -77,6 +78,10 @@ pub(crate) struct AutoCheckCurrentStatusPayload {
     pub(crate) can_check_in: bool,
     /// Whether the candidate is already marked as signed in.
     pub(crate) is_signed_in: bool,
+    /// Milliseconds currently added to local time for check-in timestamps.
+    pub(crate) timestamp_offset_ms: i64,
+    /// Latest server timestamp round-trip estimate in milliseconds.
+    pub(crate) timestamp_round_trip_ms: Option<i64>,
 }
 
 /// Login form payload sent by the frontend.
@@ -191,6 +196,7 @@ pub(crate) fn build_automation_settings_payload(
     settings: PersistedAutomationSettings,
     last_action: Option<AutoCheckLastAction>,
     current_status: AutoCheckStatus,
+    timestamp_adjustment: TimestampAdjustment,
 ) -> AutomationSettingsPayload {
     AutomationSettingsPayload {
         auto_check_in_enabled: settings.auto_check_in_enabled,
@@ -203,12 +209,16 @@ pub(crate) fn build_automation_settings_payload(
             succeeded: action.succeeded,
             message: action.message,
         }),
-        current_status: build_auto_check_current_status_payload(current_status),
+        current_status: build_auto_check_current_status_payload(
+            current_status,
+            timestamp_adjustment,
+        ),
     }
 }
 
 fn build_auto_check_current_status_payload(
     current_status: AutoCheckStatus,
+    timestamp_adjustment: TimestampAdjustment,
 ) -> AutoCheckCurrentStatusPayload {
     let current_schedule = current_status.schedule;
     let reference_time = current_status.updated_at.naive_local();
@@ -240,5 +250,7 @@ fn build_auto_check_current_status_payload(
         check_in_opens_at,
         can_check_in,
         is_signed_in,
+        timestamp_offset_ms: timestamp_adjustment.offset_ms,
+        timestamp_round_trip_ms: timestamp_adjustment.round_trip_ms,
     }
 }

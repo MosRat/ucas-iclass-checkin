@@ -14,5 +14,5 @@ iclass-domain = { version = "0.1.0", path = "../iclass-domain" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "fs"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "fs", "time"] }
 tracing.workspace = true

@@ -29,6 +29,18 @@ const statusTone = computed(() => {
 });
 
 const statusLabel = computed(() => renderStatusLabel(currentStatus.value.status));
+const timestampAdjustmentLabel = computed(() => {
+  const offset = currentStatus.value.timestampOffsetMs;
+  if (offset === 0) {
+    return "0 ms";
+  }
+  return `${offset > 0 ? "+" : ""}${offset} ms`;
+});
+
+const timestampRttLabel = computed(() => {
+  const roundTrip = currentStatus.value.timestampRoundTripMs;
+  return typeof roundTrip === "number" ? `${roundTrip} ms` : "待同步";
+});
 
 const modeLabel = computed(() => {
   if (props.automationSettings.autoCheckInMode === "uuid") {
@@ -167,6 +179,9 @@ function renderAvailability() {
       最近状态刷新：
       {{ formatDateTime(currentStatus.updatedAt) }}
       <span v-if="currentSchedule"> · {{ currentStatus.message }}</span>
+      <span>
+        · 自动估计时间调整：{{ timestampAdjustmentLabel }}，网络往返：{{ timestampRttLabel }}
+      </span>
     </p>
   </div>
 </template>

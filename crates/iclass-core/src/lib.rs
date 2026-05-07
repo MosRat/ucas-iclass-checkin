@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use chrono::{Local, NaiveDate, NaiveDateTime};
+use iclass_api::TimestampAdjustment;
 use iclass_domain::{
     CheckInAttempt, CheckInAvailability, CheckInMode, Credentials, ScheduleEntry, Semester, Session,
 };
@@ -155,6 +156,11 @@ impl IClassCore {
         &self.session_client
     }
 
+    /// Returns the current check-in timestamp adjustment estimate.
+    pub fn timestamp_adjustment(&self) -> TimestampAdjustment {
+        self.session_client.timestamp_adjustment()
+    }
+
     /// Logs in with explicit credentials and returns the normalized session.
     pub async fn login(
         &self,
@@ -247,7 +253,21 @@ impl IClassCore {
         let mut receipt = match mode {
             CheckInMode::Auto => {
                 if let Some(schedule_uuid) = schedule.schedule_uuid.as_deref() {
-                    self.session_client.check_in_by_uuid(schedule_uuid).await?
+                    match self.session_client.check_in_by_uuid(schedule_uuid).await {
+                        Ok(receipt) => receipt,
+                        Err(error) if schedule.supports_id_checkin() => {
+                            debug!(
+                                schedule_id = %schedule.schedule_id,
+                                schedule_uuid,
+                                error = %error,
+                                "uuid check-in failed in auto mode; falling back to id check-in"
+                            );
+                            self.session_client
+                                .check_in_by_id(&schedule.schedule_id)
+                                .await?
+                        }
+                        Err(error) => return Err(error.into()),
+                    }
                 } else if schedule.supports_id_checkin() {
                     self.session_client
                         .check_in_by_id(&schedule.schedule_id)
