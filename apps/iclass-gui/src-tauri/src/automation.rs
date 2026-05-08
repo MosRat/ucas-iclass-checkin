@@ -154,6 +154,8 @@ async fn run_auto_check_iteration(
                 Some(false) => "接口返回成功，但课表复核尚未显示已打卡".to_string(),
                 None => "接口返回成功，暂未完成课表复核".to_string(),
             };
+            let timestamp_message = format_receipt_timestamp_message(&result.receipt);
+            let action_message = format!("{verification_message}；{timestamp_message}");
             state.set_auto_check_last_action(AutoCheckLastAction {
                 attempted_at: now,
                 schedule_id: schedule_id.clone(),
@@ -162,7 +164,7 @@ async fn run_auto_check_iteration(
                     .receipt
                     .verified_signed_in
                     .unwrap_or(result.receipt.signed_in),
-                message: verification_message.clone(),
+                message: action_message.clone(),
             });
             update_auto_check_status(
                 app,
@@ -171,7 +173,7 @@ async fn run_auto_check_iteration(
                 AutoCheckStatus {
                     updated_at: Local::now(),
                     kind: AutoCheckStatusKind::Success,
-                    message: verification_message,
+                    message: action_message,
                     schedule: Some(result.schedule),
                 },
             );
@@ -211,6 +213,25 @@ async fn run_auto_check_iteration(
             );
         }
     }
+}
+
+fn format_receipt_timestamp_message(receipt: &iclass_core::CheckInReceipt) -> String {
+    let attempted = receipt
+        .attempted_timestamps
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let successful = receipt
+        .successful_timestamp
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "未返回".into());
+    format!(
+        "尝试时间戳 {} 个 [{}]，命中 {}",
+        receipt.attempted_timestamps.len(),
+        attempted,
+        successful
+    )
 }
 
 fn update_auto_check_status(

@@ -152,6 +152,18 @@ fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
                 iclass_session::SessionError::MissingCredentials => {
                     lines.push("session.missing_credentials=true".to_string());
                 }
+                iclass_session::SessionError::CheckInNotConfirmed {
+                    attempted_timestamps,
+                } => {
+                    lines.push(format!(
+                        "checkin.attempted_timestamps={}",
+                        attempted_timestamps
+                            .iter()
+                            .map(i64::to_string)
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    ));
+                }
             }
         }
         iclass_core::CoreError::NoScheduleAvailable { date } => {

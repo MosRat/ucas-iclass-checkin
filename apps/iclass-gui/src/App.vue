@@ -25,6 +25,7 @@ import SettingsPanel from "./components/SettingsPanel.vue";
 import type {
   AutomationSettings,
   CheckInRequest,
+  CheckInViewModel,
   CustomCheckInRequest,
   DashboardSnapshot,
   DesktopSettings,
@@ -476,9 +477,10 @@ async function performCheckIn(card: ScheduleCard) {
     const verificationLine = verifiedSigned
       ? "复核：课表已显示为已打卡"
       : "复核：课表暂未显示为已打卡，请稍后刷新确认";
+    const timestampLine = renderReceiptTimestampLine(result.receipt);
     openDialog(
       verifiedSigned ? "打卡成功" : "打卡已提交",
-      `${result.schedule.course_name}\n方式：${result.receipt.method}\n记录：${result.receipt.record_id ?? "无"}\n${verificationLine}\n耗时：${result.profile.total_ms} ms`,
+      `${result.schedule.course_name}\n方式：${result.receipt.method}\n记录：${result.receipt.record_id ?? "无"}\n${verificationLine}\n${timestampLine}\n耗时：${result.profile.total_ms} ms`,
       verifiedSigned ? "success" : "info"
     );
     statusMessage.value = verifiedSigned
@@ -502,9 +504,10 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
   let shouldRefreshDashboard = false;
   try {
     const result = await checkInCustom(request);
+    const timestampLine = renderReceiptTimestampLine(result.receipt);
     openDialog(
       result.receipt.signed_in ? "打卡成功" : "打卡完成",
-      `${result.schedule.course_name}\n方式：${result.receipt.method}\n标识：${request.identifier}\n记录：${result.receipt.record_id ?? "无"}\n耗时：${result.profile.total_ms} ms`,
+      `${result.schedule.course_name}\n方式：${result.receipt.method}\n标识：${request.identifier}\n记录：${result.receipt.record_id ?? "无"}\n${timestampLine}\n耗时：${result.profile.total_ms} ms`,
       "success"
     );
     statusMessage.value = `自定义打卡请求已完成，用时 ${result.profile.total_ms} ms。`;
@@ -537,6 +540,14 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
   if (shouldRefreshDashboard) {
     void refreshDashboard(selectedDate.value);
   }
+}
+
+function renderReceiptTimestampLine(receipt: CheckInViewModel["receipt"]) {
+  const attempted = receipt.attempted_timestamps ?? [];
+  const attemptedPreview = attempted.slice(0, 12).join(", ");
+  const more = attempted.length > 12 ? ` 等 ${attempted.length} 个` : `${attempted.length} 个`;
+  const successful = receipt.successful_timestamp ? `命中：${receipt.successful_timestamp}` : "命中：未返回";
+  return `时间戳尝试：${attemptedPreview || "无"}（${more}），${successful}`;
 }
 
 async function handleLogout() {

@@ -15,6 +15,8 @@ use tracing::{debug, warn};
 
 const MAX_CHECK_IN_ATTEMPTS: usize = 6;
 const CHECK_IN_RETRY_DELAY_MS: u64 = 250;
+const CONCURRENT_TIMESTAMP_OFFSETS_MS: &[i64] =
+    &[0, -500, 500, -1_000, 1_000, -2_000, 2_000, -4_000, 4_000];
 
 /// Stable classification of session-layer failures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,6 +60,12 @@ pub enum SessionError {
     /// No runtime or persisted credentials were available for re-login.
     #[error("no saved credentials are available for auto login")]
     MissingCredentials,
+    /// The upstream accepted a request, but none of the attempted timestamps produced a sign-in.
+    #[error("check-in was not confirmed after trying timestamps: {attempted_timestamps:?}")]
+    CheckInNotConfirmed {
+        /// Timestamps submitted during the exhausted recovery attempts.
+        attempted_timestamps: Vec<i64>,
+    },
 }
 
 impl SessionError {
@@ -80,6 +88,7 @@ impl SessionError {
             },
             Self::Store { .. } => SessionErrorKind::Store,
             Self::MissingCredentials => SessionErrorKind::MissingCredentials,
+            Self::CheckInNotConfirmed { .. } => SessionErrorKind::Business,
         }
     }
 
@@ -122,7 +131,9 @@ impl SessionError {
                 SessionErrorKind::QrExpired => Some(TimestampFeedback::TooFarBehind),
                 _ => None,
             }),
-            _ => None,
+            Self::CheckInNotConfirmed { .. } | Self::MissingCredentials | Self::Store { .. } => {
+                None
+            }
         }
     }
 }
@@ -131,6 +142,29 @@ impl SessionError {
 enum CheckInTarget<'a> {
     Uuid(&'a str),
     Id(&'a str),
+}
+
+#[derive(Debug, Clone)]
+enum CheckInTargetOwned {
+    Uuid(String),
+    Id(String),
+}
+
+impl CheckInTarget<'_> {
+    fn to_owned(self) -> CheckInTargetOwned {
+        match self {
+            CheckInTarget::Uuid(value) => CheckInTargetOwned::Uuid(value.to_owned()),
+            CheckInTarget::Id(value) => CheckInTargetOwned::Id(value.to_owned()),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CheckInBatchResult {
+    receipt: Option<CheckInReceipt>,
+    errors: Vec<ApiError>,
+    attempted_timestamps: Vec<i64>,
+    saw_unconfirmed_response: bool,
 }
 
 /// JSON-backed storage for persisted session and credential state.
@@ -400,70 +434,141 @@ impl SessionClient {
     ) -> Result<CheckInReceipt, SessionError> {
         let mut session = self.ensure_session().await?;
         self.synchronize_timestamp_offset(&session).await;
+        let mut all_attempted_timestamps = Vec::new();
 
         for attempt_index in 0..MAX_CHECK_IN_ATTEMPTS {
-            match self.send_check_in(&session, target).await {
-                Ok(receipt) => return Ok(receipt),
-                Err(error) => {
-                    let error = SessionError::from(error);
-                    let has_more_attempts = attempt_index + 1 < MAX_CHECK_IN_ATTEMPTS;
-                    if !has_more_attempts {
-                        return Err(error);
-                    }
+            let batch = self.send_check_in_batch(&session, target).await;
+            all_attempted_timestamps.extend(batch.attempted_timestamps.iter().copied());
+            if let Some(mut receipt) = batch.receipt {
+                receipt.attempted_timestamps = all_attempted_timestamps;
+                return Ok(receipt);
+            }
 
-                    if error.should_retry_with_relogin() {
-                        debug!(
-                            attempt = attempt_index + 1,
-                            ?target,
-                            "check-in failed with session error; refreshing session before retry"
-                        );
-                        session = self.refresh_session().await?;
-                        self.synchronize_timestamp_offset(&session).await;
-                        pause_before_check_in_retry().await;
-                        continue;
-                    }
+            let mut retry_error = batch.errors.into_iter().next().map(SessionError::from);
+            if retry_error.is_none() && batch.saw_unconfirmed_response {
+                retry_error = Some(SessionError::CheckInNotConfirmed {
+                    attempted_timestamps: all_attempted_timestamps.clone(),
+                });
+            }
 
-                    if let Some(feedback) = error.timestamp_feedback() {
-                        debug!(
-                            attempt = attempt_index + 1,
-                            ?target,
-                            ?feedback,
-                            "check-in failed with timestamp-like business error; adjusting before retry"
-                        );
-                        self.synchronize_timestamp_offset(&session).await;
-                        self.api.apply_timestamp_feedback(feedback);
-                        pause_before_check_in_retry().await;
-                        continue;
-                    }
-
-                    if matches!(error.kind(), SessionErrorKind::Transport) {
-                        debug!(
-                            attempt = attempt_index + 1,
-                            ?target,
-                            "check-in failed with transport error; retrying"
-                        );
-                        pause_before_check_in_retry().await;
-                        continue;
-                    }
-
+            if let Some(error) = retry_error {
+                let has_more_attempts = attempt_index + 1 < MAX_CHECK_IN_ATTEMPTS;
+                if !has_more_attempts {
                     return Err(error);
                 }
+
+                if error.should_retry_with_relogin() {
+                    debug!(
+                        attempt = attempt_index + 1,
+                        ?target,
+                        "check-in failed with session error; refreshing session before retry"
+                    );
+                    session = self.refresh_session().await?;
+                    self.synchronize_timestamp_offset(&session).await;
+                    pause_before_check_in_retry().await;
+                    continue;
+                }
+
+                if let Some(feedback) = error.timestamp_feedback() {
+                    debug!(
+                        attempt = attempt_index + 1,
+                        ?target,
+                        ?feedback,
+                        "check-in failed with timestamp-like business error; adjusting before retry"
+                    );
+                    self.synchronize_timestamp_offset(&session).await;
+                    self.api.apply_timestamp_feedback(feedback);
+                    pause_before_check_in_retry().await;
+                    continue;
+                }
+
+                if matches!(error.kind(), SessionErrorKind::Transport) {
+                    debug!(
+                        attempt = attempt_index + 1,
+                        ?target,
+                        "check-in failed with transport error; retrying"
+                    );
+                    pause_before_check_in_retry().await;
+                    continue;
+                }
+
+                return Err(error);
+            } else {
+                return Err(SessionError::CheckInNotConfirmed {
+                    attempted_timestamps: all_attempted_timestamps,
+                });
             }
         }
 
         unreachable!("check-in retry loop either returns a receipt or the last error");
     }
 
-    async fn send_check_in(
+    async fn send_check_in_batch(
         &self,
         session: &Session,
         target: CheckInTarget<'_>,
-    ) -> Result<CheckInReceipt, ApiError> {
-        match target {
-            CheckInTarget::Uuid(schedule_uuid) => {
-                self.api.check_in_by_uuid(session, schedule_uuid).await
+    ) -> CheckInBatchResult {
+        let target = target.to_owned();
+        let mut attempted_timestamps = CONCURRENT_TIMESTAMP_OFFSETS_MS
+            .iter()
+            .map(|offset| self.api.adjusted_timestamp_with_extra_offset_ms(*offset))
+            .collect::<Vec<_>>();
+        attempted_timestamps.sort_unstable();
+        attempted_timestamps.dedup();
+
+        debug!(
+            ?target,
+            ?attempted_timestamps,
+            "sending concurrent timestamp check-in attempts"
+        );
+
+        let mut tasks = tokio::task::JoinSet::new();
+        for timestamp in attempted_timestamps.iter().copied() {
+            let api = self.api.clone();
+            let session = session.clone();
+            let target = target.clone();
+            tasks.spawn(async move {
+                let result = match target {
+                    CheckInTargetOwned::Uuid(schedule_uuid) => {
+                        api.check_in_by_uuid_at_timestamp(&session, &schedule_uuid, timestamp)
+                            .await
+                    }
+                    CheckInTargetOwned::Id(schedule_id) => {
+                        api.check_in_by_id_at_timestamp(&session, &schedule_id, timestamp)
+                            .await
+                    }
+                };
+                (timestamp, result)
+            });
+        }
+
+        let mut errors = Vec::new();
+        let mut saw_unconfirmed_response = false;
+        while let Some(joined) = tasks.join_next().await {
+            match joined {
+                Ok((_, Ok(mut receipt))) if receipt.signed_in => {
+                    receipt.attempted_timestamps = attempted_timestamps.clone();
+                    tasks.abort_all();
+                    return CheckInBatchResult {
+                        receipt: Some(receipt),
+                        errors,
+                        attempted_timestamps,
+                        saw_unconfirmed_response,
+                    };
+                }
+                Ok((_, Ok(_receipt))) => {
+                    saw_unconfirmed_response = true;
+                }
+                Ok((_, Err(error))) => errors.push(error),
+                Err(error) => warn!(error = %error, "concurrent check-in task failed"),
             }
-            CheckInTarget::Id(schedule_id) => self.api.check_in_by_id(session, schedule_id).await,
+        }
+
+        CheckInBatchResult {
+            receipt: None,
+            errors,
+            attempted_timestamps,
+            saw_unconfirmed_response,
         }
     }
 }

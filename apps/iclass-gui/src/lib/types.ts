@@ -104,6 +104,8 @@ export interface CheckInReceipt {
   status_code: string;
   verified_signed_in?: boolean | null;
   observed_sign_status?: string | null;
+  attempted_timestamps: number[];
+  successful_timestamp?: number | null;
 }
 
 export interface AutoCheckLastAction {

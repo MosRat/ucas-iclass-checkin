@@ -252,6 +252,12 @@ pub struct CheckInReceipt {
 
     /// Observed schedule sign status from the verification refresh, when available.
     pub observed_sign_status: Option<String>,
+
+    /// Check-in timestamps submitted during the successful recovery attempt.
+    pub attempted_timestamps: Vec<i64>,
+
+    /// Timestamp that produced the accepted sign-in response, when known.
+    pub successful_timestamp: Option<i64>,
 }
 
 /// Combined result of choosing a schedule row and attempting attendance.

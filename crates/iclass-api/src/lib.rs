@@ -483,7 +483,19 @@ impl IClassApiClient {
         session: &Session,
         schedule_uuid: &str,
     ) -> Result<CheckInReceipt, ApiError> {
-        let timestamp = self.adjusted_timestamp_ms().to_string();
+        let timestamp = self.adjusted_timestamp_ms();
+        self.check_in_by_uuid_at_timestamp(session, schedule_uuid, timestamp)
+            .await
+    }
+
+    /// Attempts attendance using the UUID-style parameter and an explicit timestamp.
+    pub async fn check_in_by_uuid_at_timestamp(
+        &self,
+        session: &Session,
+        schedule_uuid: &str,
+        timestamp: i64,
+    ) -> Result<CheckInReceipt, ApiError> {
+        let timestamp = timestamp.to_string();
         let mut url = self.endpoint("/app/course/stu_scan_sign.action")?;
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
@@ -508,7 +520,19 @@ impl IClassApiClient {
         session: &Session,
         schedule_id: &str,
     ) -> Result<CheckInReceipt, ApiError> {
-        let timestamp = self.adjusted_timestamp_ms().to_string();
+        let timestamp = self.adjusted_timestamp_ms();
+        self.check_in_by_id_at_timestamp(session, schedule_id, timestamp)
+            .await
+    }
+
+    /// Attempts attendance using the numeric parameter and an explicit timestamp.
+    pub async fn check_in_by_id_at_timestamp(
+        &self,
+        session: &Session,
+        schedule_id: &str,
+        timestamp: i64,
+    ) -> Result<CheckInReceipt, ApiError> {
+        let timestamp = timestamp.to_string();
         let mut url = self.endpoint("/app/course/stu_scan_sign.action")?;
         url.query_pairs_mut()
             .append_pair("id", &session.user_id)
@@ -584,6 +608,11 @@ impl IClassApiClient {
         updated
     }
 
+    /// Returns the timestamp that would be submitted with an additional per-attempt offset.
+    pub fn adjusted_timestamp_with_extra_offset_ms(&self, extra_offset_ms: i64) -> i64 {
+        self.adjusted_timestamp_ms().saturating_add(extra_offset_ms)
+    }
+
     /// Resolves an API-relative path against the configured base URL.
     fn endpoint(&self, path: &str) -> Result<Url, ApiError> {
         Ok(self.base_url.join(path)?)
@@ -635,13 +664,17 @@ impl IClassApiClient {
         })?;
         let result = payload
             .into_result_with_request(Some(format!("{request_summary}\n{response_summary}")))?;
+        let request_timestamp = extract_request_timestamp(request_summary);
+        let signed_in = result.stu_sign_status.as_deref() == Some("1");
         Ok(CheckInReceipt {
             method,
             record_id: result.stu_sign_id,
-            signed_in: result.stu_sign_status.as_deref() == Some("1"),
+            signed_in,
             status_code: "0".into(),
             verified_signed_in: None,
             observed_sign_status: result.stu_sign_status,
+            attempted_timestamps: request_timestamp.into_iter().collect(),
+            successful_timestamp: signed_in.then_some(request_timestamp).flatten(),
         })
     }
 
@@ -953,6 +986,18 @@ fn build_response_summary(response: &reqwest::Response) -> String {
         response.status(),
         response.version()
     )
+}
+
+fn extract_request_timestamp(request_summary: &str) -> Option<i64> {
+    request_summary
+        .lines()
+        .find_map(|line| line.strip_prefix("request.params="))
+        .and_then(|params| {
+            params
+                .split('&')
+                .find_map(|param| param.strip_prefix("timestamp="))
+        })
+        .and_then(|timestamp| timestamp.parse().ok())
 }
 
 fn normalize_error_text(value: &str) -> String {

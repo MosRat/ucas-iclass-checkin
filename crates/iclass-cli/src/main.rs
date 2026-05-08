@@ -7,7 +7,7 @@ use chrono::{Local, NaiveDate};
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use iclass_api::IClassApiClient;
 use iclass_core::{CoreError, IClassCore};
-use iclass_domain::{CheckInMode, Credentials, ScheduleEntry, UCAS_DEFAULT_BASE_URL};
+use iclass_domain::{CheckInMode, Credentials, ScheduleEntry, Session, UCAS_DEFAULT_BASE_URL};
 use iclass_session::{SessionClient, SessionError, SessionStore};
 #[cfg(feature = "allocator-mimalloc")]
 use mimalloc::MiMalloc;
@@ -80,6 +80,15 @@ enum Command {
         #[arg(long)]
         date: Option<String>,
     },
+    /// Directly test an ID-based check-in endpoint without persisted login state.
+    CheckinDirect {
+        /// Upstream user id to send as the `id` parameter.
+        #[arg(long)]
+        user_id: String,
+        /// Numeric course schedule id to send as `courseSchedId`.
+        #[arg(long)]
+        course_sched_id: String,
+    },
 }
 
 /// CLI-level representation of check-in strategy choices.
@@ -129,8 +138,8 @@ async fn run() -> Result<()> {
     );
     let api = IClassApiClient::new(&cli.base_url)?;
     let runtime_credentials = credentials_from_cli(&cli);
-    let session_client =
-        SessionClient::new(api, store).with_runtime_credentials(runtime_credentials.clone());
+    let session_client = SessionClient::new(api.clone(), store)
+        .with_runtime_credentials(runtime_credentials.clone());
     let core = IClassCore::new(session_client.clone());
 
     match cli.command {
@@ -218,12 +227,100 @@ async fn run() -> Result<()> {
             };
 
             println!(
-                "check-in result: course={} method={:?} signed_in={} record_id={}",
+                "check-in result: course={} method={:?} signed_in={} record_id={} successful_timestamp={} attempted_timestamps={}",
                 result.schedule.course_name,
                 result.receipt.method,
                 result.receipt.signed_in,
-                result.receipt.record_id.as_deref().unwrap_or("-")
+                result.receipt.record_id.as_deref().unwrap_or("-"),
+                result
+                    .receipt
+                    .successful_timestamp
+                    .map(|timestamp| timestamp.to_string())
+                    .unwrap_or_else(|| "-".into()),
+                result
+                    .receipt
+                    .attempted_timestamps
+                    .iter()
+                    .map(i64::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
             );
+        }
+        Command::CheckinDirect {
+            user_id,
+            course_sched_id,
+        } => {
+            let session = Session {
+                user_id,
+                session_id: String::new(),
+                account: "direct-checkin".into(),
+                real_name: "direct-checkin".into(),
+                class_id: None,
+                class_name: None,
+                class_uuid: None,
+                avatar_url: None,
+                refreshed_at: chrono::Utc::now(),
+            };
+            let offset = api.synchronize_timestamp_offset(&session).await?;
+            let attempted_timestamps = concurrent_checkin_timestamps(&api);
+            let mut success = None;
+            let mut errors = Vec::new();
+            let mut tasks = tokio::task::JoinSet::new();
+            for timestamp in attempted_timestamps.iter().copied() {
+                let api = api.clone();
+                let session = session.clone();
+                let course_sched_id = course_sched_id.clone();
+                tasks.spawn(async move {
+                    let result = api
+                        .check_in_by_id_at_timestamp(&session, &course_sched_id, timestamp)
+                        .await;
+                    (timestamp, result)
+                });
+            }
+
+            while let Some(joined) = tasks.join_next().await {
+                match joined {
+                    Ok((_, Ok(receipt))) if receipt.signed_in => {
+                        success = Some(receipt);
+                        tasks.abort_all();
+                        break;
+                    }
+                    Ok((timestamp, Ok(receipt))) => errors.push(format!(
+                        "timestamp={timestamp} returned signed_in={} status={} observed={}",
+                        receipt.signed_in,
+                        receipt.status_code,
+                        receipt.observed_sign_status.as_deref().unwrap_or("-")
+                    )),
+                    Ok((timestamp, Err(error))) => {
+                        errors.push(format!("timestamp={timestamp} error={error}"))
+                    }
+                    Err(error) => errors.push(format!("task failed: {error}")),
+                }
+            }
+
+            if let Some(mut receipt) = success {
+                receipt.attempted_timestamps = attempted_timestamps;
+                println!(
+                    "direct check-in result: signed_in=true record_id={} successful_timestamp={} synchronized_offset_ms={} attempted_timestamps={}",
+                    receipt.record_id.as_deref().unwrap_or("-"),
+                    receipt
+                        .successful_timestamp
+                        .map(|timestamp| timestamp.to_string())
+                        .unwrap_or_else(|| "-".into()),
+                    offset,
+                    receipt
+                        .attempted_timestamps
+                        .iter()
+                        .map(i64::to_string)
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            } else {
+                anyhow::bail!(
+                    "direct check-in did not find a successful timestamp; synchronized_offset_ms={offset}; attempts: {}",
+                    errors.join(" | ")
+                );
+            }
         }
     }
 
@@ -338,6 +435,16 @@ fn render_core_error(error: &CoreError) -> String {
     }
 }
 
+fn concurrent_checkin_timestamps(api: &IClassApiClient) -> Vec<i64> {
+    let mut timestamps = [0, -500, 500, -1_000, 1_000, -2_000, 2_000, -4_000, 4_000]
+        .into_iter()
+        .map(|offset| api.adjusted_timestamp_with_extra_offset_ms(offset))
+        .collect::<Vec<_>>();
+    timestamps.sort_unstable();
+    timestamps.dedup();
+    timestamps
+}
+
 /// Formats a session-layer error for CLI presentation.
 fn render_session_error(error: &SessionError) -> String {
     match error.kind() {
@@ -356,7 +463,9 @@ fn render_session_error(error: &SessionError) -> String {
         }
         _ => match error {
             SessionError::Api(api_error) => render_api_error(api_error),
-            SessionError::Store { .. } | SessionError::MissingCredentials => error.to_string(),
+            SessionError::Store { .. }
+            | SessionError::MissingCredentials
+            | SessionError::CheckInNotConfirmed { .. } => error.to_string(),
         },
     }
 }
