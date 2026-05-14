@@ -8,7 +8,9 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use iclass_api::{ApiError, IClassApiClient, TimestampAdjustment, TimestampFeedback};
-use iclass_domain::{CheckInReceipt, Course, Credentials, ScheduleEntry, Semester, Session};
+use iclass_domain::{
+    CheckInReceipt, CheckInTimestampAttempt, Course, Credentials, ScheduleEntry, Semester, Session,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, warn};
@@ -65,6 +67,19 @@ pub enum SessionError {
     CheckInNotConfirmed {
         /// Timestamps submitted during the exhausted recovery attempts.
         attempted_timestamps: Vec<i64>,
+        /// Per-timestamp outcomes gathered during the exhausted recovery attempts.
+        timestamp_attempts: Vec<CheckInTimestampAttempt>,
+    },
+    /// A check-in attempt exhausted all retries and still ended with an API-level failure.
+    #[error("{source}")]
+    CheckInAttemptsFailed {
+        /// Final API failure that was not recovered from.
+        #[source]
+        source: ApiError,
+        /// Timestamps submitted during the exhausted recovery attempts.
+        attempted_timestamps: Vec<i64>,
+        /// Per-timestamp outcomes gathered during the exhausted recovery attempts.
+        timestamp_attempts: Vec<CheckInTimestampAttempt>,
     },
 }
 
@@ -73,6 +88,20 @@ impl SessionError {
     pub fn kind(&self) -> SessionErrorKind {
         match self {
             Self::Api(error) => match error.kind() {
+                iclass_api::ApiErrorKind::Transport | iclass_api::ApiErrorKind::Url => {
+                    SessionErrorKind::Transport
+                }
+                iclass_api::ApiErrorKind::Authentication => SessionErrorKind::Authentication,
+                iclass_api::ApiErrorKind::InvalidCredentials => {
+                    SessionErrorKind::InvalidCredentials
+                }
+                iclass_api::ApiErrorKind::QrExpired => SessionErrorKind::QrExpired,
+                iclass_api::ApiErrorKind::EmptySchedule => SessionErrorKind::EmptySchedule,
+                iclass_api::ApiErrorKind::Parameter => SessionErrorKind::Parameter,
+                iclass_api::ApiErrorKind::Business => SessionErrorKind::Business,
+                iclass_api::ApiErrorKind::Parse => SessionErrorKind::Parse,
+            },
+            Self::CheckInAttemptsFailed { source, .. } => match source.kind() {
                 iclass_api::ApiErrorKind::Transport | iclass_api::ApiErrorKind::Url => {
                     SessionErrorKind::Transport
                 }
@@ -134,6 +163,20 @@ impl SessionError {
             Self::CheckInNotConfirmed { .. } | Self::MissingCredentials | Self::Store { .. } => {
                 None
             }
+            Self::CheckInAttemptsFailed { source, .. } => source.timestamp_feedback(),
+        }
+    }
+
+    /// Returns the per-timestamp outcomes collected for this failed check-in, when available.
+    pub fn timestamp_attempts(&self) -> Option<&[CheckInTimestampAttempt]> {
+        match self {
+            Self::CheckInNotConfirmed {
+                timestamp_attempts, ..
+            }
+            | Self::CheckInAttemptsFailed {
+                timestamp_attempts, ..
+            } => Some(timestamp_attempts.as_slice()),
+            _ => None,
         }
     }
 }
@@ -164,6 +207,7 @@ struct CheckInBatchResult {
     receipt: Option<CheckInReceipt>,
     errors: Vec<ApiError>,
     attempted_timestamps: Vec<i64>,
+    timestamp_attempts: Vec<CheckInTimestampAttempt>,
     saw_unconfirmed_response: bool,
 }
 
@@ -435,12 +479,16 @@ impl SessionClient {
         let mut session = self.ensure_session().await?;
         self.synchronize_timestamp_offset(&session).await;
         let mut all_attempted_timestamps = Vec::new();
+        let mut all_timestamp_attempts = Vec::new();
 
         for attempt_index in 0..MAX_CHECK_IN_ATTEMPTS {
             let batch = self.send_check_in_batch(&session, target).await;
             all_attempted_timestamps.extend(batch.attempted_timestamps.iter().copied());
+            all_timestamp_attempts.extend(batch.timestamp_attempts.iter().cloned());
             if let Some(mut receipt) = batch.receipt {
+                all_timestamp_attempts.sort_by_key(|attempt| attempt.timestamp);
                 receipt.attempted_timestamps = all_attempted_timestamps;
+                receipt.timestamp_attempts = all_timestamp_attempts;
                 return Ok(receipt);
             }
 
@@ -448,13 +496,29 @@ impl SessionClient {
             if retry_error.is_none() && batch.saw_unconfirmed_response {
                 retry_error = Some(SessionError::CheckInNotConfirmed {
                     attempted_timestamps: all_attempted_timestamps.clone(),
+                    timestamp_attempts: all_timestamp_attempts.clone(),
                 });
             }
 
             if let Some(error) = retry_error {
                 let has_more_attempts = attempt_index + 1 < MAX_CHECK_IN_ATTEMPTS;
                 if !has_more_attempts {
-                    return Err(error);
+                    return Err(match error {
+                        SessionError::Api(source) => SessionError::CheckInAttemptsFailed {
+                            source,
+                            attempted_timestamps: all_attempted_timestamps,
+                            timestamp_attempts: sorted_timestamp_attempts(all_timestamp_attempts),
+                        },
+                        SessionError::CheckInNotConfirmed { .. } => {
+                            SessionError::CheckInNotConfirmed {
+                                attempted_timestamps: all_attempted_timestamps,
+                                timestamp_attempts: sorted_timestamp_attempts(
+                                    all_timestamp_attempts,
+                                ),
+                            }
+                        }
+                        other => other,
+                    });
                 }
 
                 if error.should_retry_with_relogin() {
@@ -496,6 +560,7 @@ impl SessionClient {
             } else {
                 return Err(SessionError::CheckInNotConfirmed {
                     attempted_timestamps: all_attempted_timestamps,
+                    timestamp_attempts: sorted_timestamp_attempts(all_timestamp_attempts),
                 });
             }
         }
@@ -543,31 +608,54 @@ impl SessionClient {
         }
 
         let mut errors = Vec::new();
+        let mut timestamp_attempts = Vec::new();
         let mut saw_unconfirmed_response = false;
+        let mut successful_receipt = None;
         while let Some(joined) = tasks.join_next().await {
             match joined {
-                Ok((_, Ok(mut receipt))) if receipt.signed_in => {
-                    receipt.attempted_timestamps = attempted_timestamps.clone();
-                    tasks.abort_all();
-                    return CheckInBatchResult {
-                        receipt: Some(receipt),
-                        errors,
-                        attempted_timestamps,
-                        saw_unconfirmed_response,
-                    };
+                Ok((timestamp, Ok(mut receipt))) => {
+                    if receipt.timestamp_attempts.is_empty() {
+                        receipt.timestamp_attempts.push(CheckInTimestampAttempt {
+                            timestamp,
+                            signed_in: receipt.signed_in,
+                            status_code: Some(receipt.status_code.clone()),
+                            message: receipt
+                                .observed_sign_status
+                                .as_deref()
+                                .map(|status| format!("stuSignStatus={status}")),
+                        });
+                    }
+                    timestamp_attempts.extend(receipt.timestamp_attempts.iter().cloned());
+                    if receipt.signed_in {
+                        if successful_receipt.is_none() {
+                            successful_receipt = Some(receipt);
+                        }
+                    } else {
+                        saw_unconfirmed_response = true;
+                    }
                 }
-                Ok((_, Ok(_receipt))) => {
-                    saw_unconfirmed_response = true;
+                Ok((timestamp, Err(error))) => {
+                    let attempt = error
+                        .timestamp_attempt()
+                        .unwrap_or(CheckInTimestampAttempt {
+                            timestamp,
+                            signed_in: false,
+                            status_code: error.business_code().map(str::to_owned),
+                            message: Some(error.to_string()),
+                        });
+                    timestamp_attempts.push(attempt);
+                    errors.push(error);
                 }
-                Ok((_, Err(error))) => errors.push(error),
                 Err(error) => warn!(error = %error, "concurrent check-in task failed"),
             }
         }
+        timestamp_attempts.sort_by_key(|attempt| attempt.timestamp);
 
         CheckInBatchResult {
-            receipt: None,
+            receipt: successful_receipt,
             errors,
             attempted_timestamps,
+            timestamp_attempts,
             saw_unconfirmed_response,
         }
     }
@@ -575,6 +663,13 @@ impl SessionClient {
 
 async fn pause_before_check_in_retry() {
     tokio::time::sleep(Duration::from_millis(CHECK_IN_RETRY_DELAY_MS)).await;
+}
+
+fn sorted_timestamp_attempts(
+    mut attempts: Vec<CheckInTimestampAttempt>,
+) -> Vec<CheckInTimestampAttempt> {
+    attempts.sort_by_key(|attempt| attempt.timestamp);
+    attempts
 }
 
 /// Returns the default location for persisted session state.

@@ -280,6 +280,7 @@ pub(crate) async fn update_automation_settings(
             "自动打卡已关闭。".into()
         },
         schedule: None,
+        next_retry_at: None,
     });
 
     Ok(build_automation_settings_payload(

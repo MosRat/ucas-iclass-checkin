@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { formatClockTime, formatDateTime } from "../lib/datetime";
+import TimestampAttemptList from "./TimestampAttemptList.vue";
 import type { AutomationSettings, AutoCheckStatusKind } from "../lib/types";
 
 const props = defineProps<{
@@ -42,6 +43,13 @@ const timestampRttLabel = computed(() => {
   return typeof roundTrip === "number" ? `${roundTrip} ms` : "待同步";
 });
 
+const nextRetryLabel = computed(() => {
+  if (!currentStatus.value.nextRetryAt) {
+    return null;
+  }
+  return formatDateTime(currentStatus.value.nextRetryAt);
+});
+
 const modeLabel = computed(() => {
   if (props.automationSettings.autoCheckInMode === "uuid") {
     return "UUID";
@@ -51,6 +59,8 @@ const modeLabel = computed(() => {
   }
   return "Auto";
 });
+
+const lastActionAttempts = computed(() => props.automationSettings.lastAutoCheckAction?.timestampAttempts ?? []);
 
 function renderStatusLabel(kind: AutoCheckStatusKind) {
   switch (kind) {
@@ -139,6 +149,9 @@ function renderAvailability() {
             {{ currentSchedule.teacher_name || "教师未标注" }} · {{ currentSchedule.classroom_name || "地点未标注" }}
           </p>
           <p class="mt-2 text-sm leading-6 text-ink-600">{{ renderAvailability() }}</p>
+          <p v-if="nextRetryLabel" class="mt-2 text-xs leading-5 text-ink-500">
+            下一次自动重试：{{ nextRetryLabel }}
+          </p>
           <p class="mt-3 text-xs leading-5 text-ink-500">
             {{ formatClockTime(currentSchedule.begins_at) }}
             -
@@ -168,6 +181,14 @@ function renderAvailability() {
             {{ formatDateTime(automationSettings.lastAutoCheckAction.attemptedAt) }}
             · {{ automationSettings.lastAutoCheckAction.message }}
           </p>
+          <TimestampAttemptList
+            v-if="lastActionAttempts.length"
+            class="mt-3"
+            :attempts="lastActionAttempts"
+            :max-visible="5"
+            dense
+            title="最近尝试"
+          />
         </template>
         <template v-else>
           <p class="mt-2 text-sm leading-6 text-ink-600">当前还没有自动打卡记录。</p>

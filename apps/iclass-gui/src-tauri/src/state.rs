@@ -8,10 +8,10 @@ use std::{
     },
 };
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, TimeZone};
 use iclass_api::IClassApiClient;
 use iclass_core::IClassCore;
-use iclass_domain::ScheduleEntry;
+use iclass_domain::{CheckInTimestampAttempt, ScheduleEntry};
 use iclass_session::{SessionClient, SessionStore};
 
 use crate::settings::{AutomationSettingsStore, DesktopSettingsStore};
@@ -29,6 +29,7 @@ pub(crate) struct AutoCheckLastAction {
     pub(crate) course_name: String,
     pub(crate) succeeded: bool,
     pub(crate) message: String,
+    pub(crate) timestamp_attempts: Vec<CheckInTimestampAttempt>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +48,7 @@ pub(crate) struct AutoCheckStatus {
     pub(crate) kind: AutoCheckStatusKind,
     pub(crate) message: String,
     pub(crate) schedule: Option<ScheduleEntry>,
+    pub(crate) next_retry_at: Option<DateTime<Local>>,
 }
 
 /// Application-wide shared state for Tauri commands.
@@ -87,6 +89,7 @@ impl AppState {
                 kind: AutoCheckStatusKind::Idle,
                 message: "等待下一轮自动打卡检查。".into(),
                 schedule: None,
+                next_retry_at: None,
             })),
         }
     }
@@ -134,6 +137,28 @@ impl AppState {
             }
             None => true,
         }
+    }
+
+    /// Returns when the background worker may retry this schedule after a failed attempt.
+    pub(crate) fn next_auto_check_retry_at(
+        &self,
+        schedule: &ScheduleEntry,
+        retry_after_seconds: u64,
+    ) -> Option<DateTime<Local>> {
+        let key = auto_check_key(schedule);
+        let records = self
+            .auto_check_records
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let record = records.get(&key)?;
+        if record.succeeded {
+            return None;
+        }
+        let retry_after_seconds = i64::try_from(retry_after_seconds).unwrap_or(i64::MAX);
+        let next_timestamp = record
+            .last_attempt_timestamp
+            .saturating_add(retry_after_seconds);
+        Local.timestamp_opt(next_timestamp, 0).single()
     }
 
     /// Records the outcome of one background auto check-in attempt.

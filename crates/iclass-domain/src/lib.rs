@@ -232,6 +232,22 @@ pub enum CheckInMethod {
     Id,
 }
 
+/// Outcome for one timestamp submitted to the check-in endpoint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckInTimestampAttempt {
+    /// Timestamp value submitted to the upstream endpoint.
+    pub timestamp: i64,
+
+    /// Whether this timestamp produced a signed-in response.
+    pub signed_in: bool,
+
+    /// Upstream business/status code, when available.
+    pub status_code: Option<String>,
+
+    /// Upstream message or normalized status detail, when available.
+    pub message: Option<String>,
+}
+
 /// Business-level result of a check-in request.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckInReceipt {
@@ -255,6 +271,9 @@ pub struct CheckInReceipt {
 
     /// Check-in timestamps submitted during the successful recovery attempt.
     pub attempted_timestamps: Vec<i64>,
+
+    /// Per-timestamp outcomes collected during automatic recovery.
+    pub timestamp_attempts: Vec<CheckInTimestampAttempt>,
 
     /// Timestamp that produced the accepted sign-in response, when known.
     pub successful_timestamp: Option<i64>,

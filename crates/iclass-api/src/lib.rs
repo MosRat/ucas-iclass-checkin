@@ -2,8 +2,8 @@
 
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use iclass_domain::{
-    API_DATETIME_FORMAT, API_DAY_FORMAT, CheckInMethod, CheckInReceipt, Course, Credentials,
-    ScheduleEntry, Semester, Session, UCAS_DEFAULT_BASE_URL, format_api_date,
+    API_DATETIME_FORMAT, API_DAY_FORMAT, CheckInMethod, CheckInReceipt, CheckInTimestampAttempt,
+    Course, Credentials, ScheduleEntry, Semester, Session, UCAS_DEFAULT_BASE_URL, format_api_date,
 };
 use std::{
     sync::{
@@ -184,6 +184,20 @@ impl ApiError {
             } => request_summary.as_deref(),
             Self::Url(_) => None,
         }
+    }
+
+    /// Returns a failed timestamp-attempt detail reconstructed from the request summary.
+    pub fn timestamp_attempt(&self) -> Option<CheckInTimestampAttempt> {
+        let timestamp = self.request_summary().and_then(extract_request_timestamp)?;
+        Some(CheckInTimestampAttempt {
+            timestamp,
+            signed_in: false,
+            status_code: self.business_code().map(str::to_owned),
+            message: self
+                .business_message()
+                .map(str::to_owned)
+                .or_else(|| Some(self.to_string())),
+        })
     }
 
     /// Returns whether this error is a business error with the given code.
@@ -665,15 +679,28 @@ impl IClassApiClient {
         let result = payload
             .into_result_with_request(Some(format!("{request_summary}\n{response_summary}")))?;
         let request_timestamp = extract_request_timestamp(request_summary);
-        let signed_in = result.stu_sign_status.as_deref() == Some("1");
+        let observed_sign_status = result.stu_sign_status;
+        let signed_in = observed_sign_status.as_deref() == Some("1");
+        let timestamp_attempts = request_timestamp
+            .map(|timestamp| CheckInTimestampAttempt {
+                timestamp,
+                signed_in,
+                status_code: Some("0".into()),
+                message: observed_sign_status
+                    .as_deref()
+                    .map(|status| format!("stuSignStatus={status}")),
+            })
+            .into_iter()
+            .collect();
         Ok(CheckInReceipt {
             method,
             record_id: result.stu_sign_id,
             signed_in,
             status_code: "0".into(),
             verified_signed_in: None,
-            observed_sign_status: result.stu_sign_status,
+            observed_sign_status,
             attempted_timestamps: request_timestamp.into_iter().collect(),
+            timestamp_attempts,
             successful_timestamp: signed_in.then_some(request_timestamp).flatten(),
         })
     }

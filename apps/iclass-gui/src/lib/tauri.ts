@@ -24,7 +24,8 @@ function normalizeError(error: unknown): GuiErrorPayload {
         code: "Business",
         message: error,
         retryable: false,
-        debug_details: error
+        debug_details: error,
+        timestamp_attempts: []
       };
     }
   }
@@ -36,18 +37,24 @@ function normalizeError(error: unknown): GuiErrorPayload {
       typeof payload.message === "string" &&
       typeof payload.retryable === "boolean"
     ) {
-      return payload as GuiErrorPayload;
+      return {
+        ...payload,
+        timestamp_attempts: Array.isArray(payload.timestamp_attempts)
+          ? payload.timestamp_attempts
+          : []
+      } as GuiErrorPayload;
     }
 
     const withMessage = error as { message?: unknown; error?: unknown; cause?: unknown };
     for (const candidate of [withMessage.message, withMessage.error, withMessage.cause]) {
       if (typeof candidate === "string" && candidate.trim()) {
-        return {
-          code: "Business",
-          message: candidate,
-          retryable: false,
-          debug_details: JSON.stringify(error, null, 2)
-        };
+      return {
+        code: "Business",
+        message: candidate,
+        retryable: false,
+        debug_details: JSON.stringify(error, null, 2),
+        timestamp_attempts: []
+      };
       }
     }
   }
@@ -56,7 +63,8 @@ function normalizeError(error: unknown): GuiErrorPayload {
     code: "Business",
     message: error instanceof Error ? error.message : "发生了未知错误。",
     retryable: false,
-    debug_details: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    debug_details: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+    timestamp_attempts: []
   };
 }
 
@@ -65,7 +73,8 @@ async function invokeCommand<T>(command: string, args?: Record<string, unknown>)
     throw normalizeError({
       code: "Business",
       message: "当前是浏览器预览模式，请使用 `pnpm tauri dev` 启动桌面应用。",
-      retryable: false
+      retryable: false,
+      timestamp_attempts: []
     });
   }
 

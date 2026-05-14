@@ -3,8 +3,10 @@
 use std::time::Instant;
 
 use chrono::{DateTime, Datelike, Local, NaiveDate, NaiveDateTime};
-use iclass_core::{CheckInReceipt, CoreErrorKind, Course, IClassCore};
-use iclass_domain::{CheckInAvailability, CheckInMode, ScheduleEntry, Semester};
+use iclass_core::{CheckInReceipt, CoreError, CoreErrorKind, Course, IClassCore};
+use iclass_domain::{
+    CheckInAvailability, CheckInMode, CheckInTimestampAttempt, ScheduleEntry, Semester,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -79,6 +81,7 @@ impl GuiBridgeError {
                         GuiErrorCode::AuthenticationRequired | GuiErrorCode::Network
                     ),
                     debug_details: Some(format_core_debug_details(error)),
+                    timestamp_attempts: collect_timestamp_attempts(error),
                 }
             }
         }
@@ -96,6 +99,9 @@ pub struct GuiErrorPayload {
     pub retryable: bool,
     /// Optional detailed text intended for copying into bug reports or debug logs.
     pub debug_details: Option<String>,
+    /// Structured timestamp attempts captured while the request was failing, when available.
+    #[serde(default)]
+    pub timestamp_attempts: Vec<CheckInTimestampAttempt>,
 }
 
 impl GuiErrorPayload {
@@ -106,6 +112,7 @@ impl GuiErrorPayload {
             message: message.into(),
             retryable,
             debug_details: None,
+            timestamp_attempts: Vec::new(),
         }
     }
 
@@ -116,7 +123,7 @@ impl GuiErrorPayload {
     }
 }
 
-fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
+fn format_core_debug_details(error: &CoreError) -> String {
     let mut lines = vec![
         "layer=core".to_string(),
         format!("kind={:?}", error.kind()),
@@ -154,6 +161,7 @@ fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
                 }
                 iclass_session::SessionError::CheckInNotConfirmed {
                     attempted_timestamps,
+                    timestamp_attempts,
                 } => {
                     lines.push(format!(
                         "checkin.attempted_timestamps={}",
@@ -162,6 +170,29 @@ fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
                             .map(i64::to_string)
                             .collect::<Vec<_>>()
                             .join(",")
+                    ));
+                    lines.push(format!(
+                        "checkin.timestamp_attempts={}",
+                        format_timestamp_attempts(timestamp_attempts)
+                    ));
+                }
+                iclass_session::SessionError::CheckInAttemptsFailed {
+                    source,
+                    attempted_timestamps,
+                    timestamp_attempts,
+                } => {
+                    lines.push(format!("checkin.final_source={source}"));
+                    lines.push(format!(
+                        "checkin.attempted_timestamps={}",
+                        attempted_timestamps
+                            .iter()
+                            .map(i64::to_string)
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    ));
+                    lines.push(format!(
+                        "checkin.timestamp_attempts={}",
+                        format_timestamp_attempts(timestamp_attempts)
                     ));
                 }
             }
@@ -202,6 +233,40 @@ fn format_core_debug_details(error: &iclass_core::CoreError) -> String {
     }
 
     lines.join("\n")
+}
+
+fn collect_timestamp_attempts(error: &CoreError) -> Vec<CheckInTimestampAttempt> {
+    match error {
+        CoreError::Session(session_error) => session_error
+            .timestamp_attempts()
+            .map(|attempts| attempts.to_vec())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+fn format_timestamp_attempts(attempts: &[iclass_domain::CheckInTimestampAttempt]) -> String {
+    attempts
+        .iter()
+        .map(|attempt| {
+            let status = if attempt.signed_in {
+                "success"
+            } else {
+                "failure"
+            };
+            let detail = [attempt.status_code.as_deref(), attempt.message.as_deref()]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" ");
+            if detail.is_empty() {
+                format!("{}:{status}", attempt.timestamp)
+            } else {
+                format!("{}:{status}:{detail}", attempt.timestamp)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" | ")
 }
 
 /// Minimal session information typically shown in a GUI shell.

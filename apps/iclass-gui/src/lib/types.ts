@@ -19,6 +19,7 @@ export interface GuiErrorPayload {
   message: string;
   retryable: boolean;
   debug_details?: string | null;
+  timestamp_attempts?: CheckInTimestampAttempt[] | null;
 }
 
 export interface ProfilePhase {
@@ -105,7 +106,15 @@ export interface CheckInReceipt {
   verified_signed_in?: boolean | null;
   observed_sign_status?: string | null;
   attempted_timestamps: number[];
+  timestamp_attempts: CheckInTimestampAttempt[];
   successful_timestamp?: number | null;
+}
+
+export interface CheckInTimestampAttempt {
+  timestamp: number;
+  signed_in: boolean;
+  status_code?: string | null;
+  message?: string | null;
 }
 
 export interface AutoCheckLastAction {
@@ -114,6 +123,7 @@ export interface AutoCheckLastAction {
   courseName: string;
   succeeded: boolean;
   message: string;
+  timestampAttempts: CheckInTimestampAttempt[];
 }
 
 export type AutoCheckStatusKind = "idle" | "waitingWindow" | "ready" | "attempting" | "success" | "error";
@@ -123,6 +133,7 @@ export interface AutoCheckCurrentStatus {
   status: AutoCheckStatusKind;
   message: string;
   schedule?: ScheduleEntry | null;
+  nextRetryAt?: string | null;
   availability?: CheckInAvailability | null;
   checkInOpensAt?: string | null;
   canCheckIn: boolean;

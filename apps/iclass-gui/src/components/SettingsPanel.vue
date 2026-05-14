@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted } from "vue";
 import { X } from "lucide-vue-next";
 import type { AppPreferences, CheckInModePreference } from "../composables/usePreferences";
 import type { AutomationSettings, DesktopSettings } from "../lib/types";
 
-defineProps<{
+const props = defineProps<{
   open: boolean;
   desktopShell: boolean;
   preferences: AppPreferences;
@@ -35,13 +36,27 @@ const modeOptions: Array<{ value: CheckInModePreference; label: string; descript
     description: "只使用课程排课 ID 打卡。"
   }
 ];
+
+function handleKeydown(event: KeyboardEvent) {
+  if (props.open && event.key === "Escape") {
+    emit("close");
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", handleKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", handleKeydown));
 </script>
 
 <template>
   <transition name="dialog-fade">
-    <div v-if="open" class="fixed inset-0 z-40 bg-[rgba(36,28,20,0.18)]">
-      <div class="absolute inset-0 flex items-start justify-end p-0 md:p-6">
-        <aside class="flex h-full w-full flex-col border-l border-[rgba(224,214,198,0.88)] bg-[rgba(250,247,241,0.97)] shadow-fluent backdrop-blur-2xl md:h-[calc(100vh-3rem)] md:max-h-[920px] md:w-[31rem] md:rounded-[2rem]">
+    <div v-if="open" class="fixed inset-0 z-40 bg-[rgba(36,28,20,0.18)]" @click.self="emit('close')">
+      <div class="absolute inset-0 flex items-start justify-end p-0 md:p-6" @click.self="emit('close')">
+        <aside
+          aria-label="偏好设置"
+          aria-modal="true"
+          class="flex h-full w-full flex-col border-l border-[rgba(224,214,198,0.88)] bg-[rgba(250,247,241,0.97)] shadow-fluent backdrop-blur-2xl md:h-[calc(100vh-3rem)] md:max-h-[920px] md:w-[31rem] md:rounded-[2rem]"
+          role="dialog"
+        >
           <div class="flex items-center justify-between border-b border-[rgba(224,214,198,0.8)] px-5 py-4">
             <div>
               <p class="text-xs uppercase tracking-[0.24em] text-ink-400">Application Settings</p>

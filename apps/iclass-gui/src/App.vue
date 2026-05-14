@@ -9,6 +9,7 @@ import ScheduleDetailSheet from "./components/ScheduleDetailSheet.vue";
 import ScheduleBoard from "./components/ScheduleBoard.vue";
 import { useDesktopWindow } from "./composables/useDesktopWindow";
 import { usePreferences } from "./composables/usePreferences";
+import { formatTimestampMs } from "./lib/datetime";
 import {
   checkIn,
   checkInCustom,
@@ -25,6 +26,7 @@ import SettingsPanel from "./components/SettingsPanel.vue";
 import type {
   AutomationSettings,
   CheckInRequest,
+  CheckInTimestampAttempt,
   CheckInViewModel,
   CustomCheckInRequest,
   DashboardSnapshot,
@@ -120,7 +122,8 @@ const dialog = reactive({
   message: "",
   tone: "error" as "error" | "success" | "info",
   actionLabel: "",
-  debugDetails: ""
+  debugDetails: "",
+  timestampAttempts: [] as CheckInTimestampAttempt[]
 });
 
 const showLogin = computed(() => dashboard.value === null);
@@ -159,7 +162,8 @@ function openDialog(
   message: string,
   tone: "error" | "success" | "info" = "error",
   actionLabel = "",
-  debugDetails = ""
+  debugDetails = "",
+  timestampAttempts: CheckInTimestampAttempt[] = []
 ) {
   dialog.open = true;
   dialog.title = title;
@@ -167,12 +171,14 @@ function openDialog(
   dialog.tone = tone;
   dialog.actionLabel = actionLabel;
   dialog.debugDetails = debugDetails;
+  dialog.timestampAttempts = timestampAttempts;
 }
 
 function closeDialog() {
   dialog.open = false;
   dialog.actionLabel = "";
   dialog.debugDetails = "";
+  dialog.timestampAttempts = [];
 }
 
 function buildDebugDetails(payload: GuiErrorPayload, context: string) {
@@ -185,11 +191,29 @@ function buildDebugDetails(payload: GuiErrorPayload, context: string) {
   if (payload.debug_details?.trim()) {
     lines.push("", payload.debug_details);
   }
+  const attempts = payload.timestamp_attempts ?? [];
+  if (attempts.length) {
+    lines.push("", "structured.timestamp_attempts=");
+    lines.push(
+      ...attempts.map((attempt) => {
+        const status = attempt.signed_in ? "success" : "failure";
+        const detail = [attempt.status_code, attempt.message].filter(Boolean).join(" ");
+        return detail ? `${attempt.timestamp}:${status}:${detail}` : `${attempt.timestamp}:${status}`;
+      })
+    );
+  }
   return lines.join("\n");
 }
 
 function openErrorDialog(title: string, payload: GuiErrorPayload, actionLabel = "", context = "gui") {
-  openDialog(title, payload.message, "error", actionLabel, buildDebugDetails(payload, context));
+  openDialog(
+    title,
+    payload.message,
+    "error",
+    actionLabel,
+    buildDebugDetails(payload, context),
+    payload.timestamp_attempts ?? []
+  );
 }
 
 function runDialogAction() {
@@ -543,11 +567,22 @@ async function performCustomCheckIn(request: CustomCheckInRequest) {
 }
 
 function renderReceiptTimestampLine(receipt: CheckInViewModel["receipt"]) {
-  const attempted = receipt.attempted_timestamps ?? [];
-  const attemptedPreview = attempted.slice(0, 12).join(", ");
-  const more = attempted.length > 12 ? ` 等 ${attempted.length} 个` : `${attempted.length} 个`;
-  const successful = receipt.successful_timestamp ? `命中：${receipt.successful_timestamp}` : "命中：未返回";
-  return `时间戳尝试：${attemptedPreview || "无"}（${more}），${successful}`;
+  const attempts = receipt.timestamp_attempts ?? [];
+  if (!attempts.length) {
+    const attempted = receipt.attempted_timestamps ?? [];
+    const attemptedPreview = attempted.slice(0, 12).join(", ");
+    const more = attempted.length > 12 ? ` 等 ${attempted.length} 个` : `${attempted.length} 个`;
+    const successful = receipt.successful_timestamp ? `命中：${receipt.successful_timestamp}` : "命中：未返回";
+    return `时间戳尝试：${attemptedPreview || "无"}（${more}），${successful}`;
+  }
+  const preview = attempts.slice(0, 12).map((attempt) => {
+    const status = attempt.signed_in ? "成功" : "失败";
+    const detail = [attempt.status_code, attempt.message].filter(Boolean).join(" ");
+    const attemptedAt = formatTimestampMs(attempt.timestamp);
+    return detail ? `${attemptedAt} ${status} ${detail}` : `${attemptedAt} ${status}`;
+  });
+  const more = attempts.length > 12 ? `\n其余 ${attempts.length - 12} 个已省略` : "";
+  return `时间戳尝试：\n${preview.join("\n")}${more}`;
 }
 
 async function handleLogout() {
@@ -859,9 +894,10 @@ onBeforeUnmount(() => {
         :debug-details="dialog.debugDetails"
         :message="dialog.message"
         :open="dialog.open"
+        :timestamp-attempts="dialog.timestampAttempts"
         :title="dialog.title"
-      :tone="dialog.tone"
-      @action="runDialogAction"
+        :tone="dialog.tone"
+        @action="runDialogAction"
       @close="closeDialog"
     />
 

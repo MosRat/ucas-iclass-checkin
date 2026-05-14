@@ -465,7 +465,8 @@ fn render_session_error(error: &SessionError) -> String {
             SessionError::Api(api_error) => render_api_error(api_error),
             SessionError::Store { .. }
             | SessionError::MissingCredentials
-            | SessionError::CheckInNotConfirmed { .. } => error.to_string(),
+            | SessionError::CheckInNotConfirmed { .. }
+            | SessionError::CheckInAttemptsFailed { .. } => error.to_string(),
         },
     }
 }

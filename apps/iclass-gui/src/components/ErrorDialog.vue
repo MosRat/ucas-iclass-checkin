@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import TimestampAttemptList from "./TimestampAttemptList.vue";
+import type { CheckInTimestampAttempt } from "../lib/types";
 
 const props = defineProps<{
   open: boolean;
@@ -8,15 +10,26 @@ const props = defineProps<{
   tone?: "error" | "success" | "info";
   actionLabel?: string;
   debugDetails?: string;
+  timestampAttempts?: CheckInTimestampAttempt[];
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   close: [];
   action: [];
 }>();
 
 const copied = ref(false);
 const hasDebugDetails = computed(() => Boolean(props.debugDetails?.trim()));
+const timestampAttempts = computed(() => props.timestampAttempts ?? []);
+
+function handleKeydown(event: KeyboardEvent) {
+  if (props.open && event.key === "Escape") {
+    emit("close");
+  }
+}
+
+onMounted(() => window.addEventListener("keydown", handleKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", handleKeydown));
 
 async function copyDebugDetails() {
   if (!props.debugDetails) {
@@ -49,8 +62,17 @@ async function copyDebugDetails() {
 
 <template>
   <transition name="dialog-fade">
-    <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(36,28,20,0.22)] px-4 py-8">
-      <div class="w-full max-w-xl rounded-4xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.96)] p-6 shadow-fluent backdrop-blur-2xl">
+    <div
+      v-if="open"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(36,28,20,0.22)] px-3 py-4 sm:px-4 sm:py-8"
+      @click.self="emit('close')"
+    >
+      <div
+        aria-modal="true"
+        class="max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto rounded-4xl border border-[rgba(224,214,198,0.88)] bg-[rgba(255,252,247,0.96)] p-5 shadow-fluent backdrop-blur-2xl sm:p-6"
+        role="dialog"
+        :aria-label="title"
+      >
         <div
           class="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl"
           :class="{
@@ -62,7 +84,13 @@ async function copyDebugDetails() {
           {{ tone === "error" ? "!" : tone === "success" ? "✓" : "i" }}
         </div>
         <h2 class="text-lg font-semibold text-ink-900">{{ title }}</h2>
-        <p class="mt-2 whitespace-pre-line text-sm leading-6 text-ink-600">{{ message }}</p>
+        <p class="mt-2 whitespace-pre-line break-words text-sm leading-6 text-ink-600">{{ message }}</p>
+        <TimestampAttemptList
+          v-if="timestampAttempts.length"
+          class="mt-4"
+          :attempts="timestampAttempts"
+          :max-visible="8"
+        />
         <details v-if="hasDebugDetails" class="mt-4 rounded-3xl border border-[rgba(224,214,198,0.88)] bg-[rgba(250,245,238,0.88)] p-4">
           <summary class="cursor-pointer list-none text-sm font-semibold text-ink-900">
             调试信息
@@ -77,11 +105,11 @@ async function copyDebugDetails() {
             </button>
           </div>
         </details>
-        <div class="mt-6 flex justify-end gap-3">
-          <button v-if="actionLabel" class="secondary-btn" type="button" @click="$emit('action')">
+        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button v-if="actionLabel" class="secondary-btn justify-center" type="button" @click="emit('action')">
             {{ actionLabel }}
           </button>
-          <button class="primary-btn" type="button" @click="$emit('close')">知道了</button>
+          <button class="primary-btn justify-center" type="button" @click="emit('close')">知道了</button>
         </div>
       </div>
     </div>

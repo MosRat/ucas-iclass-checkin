@@ -2,7 +2,7 @@
 
 use chrono::Local;
 use iclass_api::TimestampAdjustment;
-use iclass_domain::CheckInAvailability;
+use iclass_domain::{CheckInAvailability, CheckInTimestampAttempt};
 use iclass_domain::{CheckInMode, ScheduleEntry};
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +25,8 @@ pub(crate) struct AutoCheckLastActionPayload {
     pub(crate) succeeded: bool,
     /// Human-readable result message for the latest action.
     pub(crate) message: String,
+    /// Per-timestamp outcomes from the latest action, when available.
+    pub(crate) timestamp_attempts: Vec<CheckInTimestampAttempt>,
 }
 
 /// Stable GUI-facing state of the background auto check-in worker.
@@ -70,6 +72,8 @@ pub(crate) struct AutoCheckCurrentStatusPayload {
     pub(crate) message: String,
     /// Candidate schedule currently being observed by the worker, if any.
     pub(crate) schedule: Option<ScheduleEntry>,
+    /// Next retry time when the worker is cooling down, if any.
+    pub(crate) next_retry_at: Option<String>,
     /// Derived candidate availability, if a schedule exists.
     pub(crate) availability: Option<CheckInAvailability>,
     /// When the worker believes check-in first becomes available.
@@ -208,6 +212,7 @@ pub(crate) fn build_automation_settings_payload(
             course_name: action.course_name,
             succeeded: action.succeeded,
             message: action.message,
+            timestamp_attempts: action.timestamp_attempts,
         }),
         current_status: build_auto_check_current_status_payload(
             current_status,
@@ -240,12 +245,14 @@ fn build_auto_check_current_status_payload(
                 .single()
         })
         .map(|value| value.to_rfc3339());
+    let next_retry_at = current_status.next_retry_at.map(|value| value.to_rfc3339());
 
     AutoCheckCurrentStatusPayload {
         updated_at: current_status.updated_at.to_rfc3339(),
         status: current_status.kind.into(),
         message: current_status.message,
         schedule: current_schedule,
+        next_retry_at,
         availability,
         check_in_opens_at,
         can_check_in,

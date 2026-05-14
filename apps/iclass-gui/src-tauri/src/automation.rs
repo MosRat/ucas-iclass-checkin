@@ -36,6 +36,7 @@ pub(crate) fn spawn_auto_check_loop(app: AppHandle, state: AppState) {
                         kind: AutoCheckStatusKind::Idle,
                         message: "自动打卡已关闭。".into(),
                         schedule: None,
+                        next_retry_at: None,
                     },
                 );
             }
@@ -74,6 +75,7 @@ async fn run_auto_check_iteration(
                     kind: AutoCheckStatusKind::Idle,
                     message: "当前没有处于自动打卡观察范围内的课程。".into(),
                     schedule: None,
+                    next_retry_at: None,
                 },
             );
             return;
@@ -95,22 +97,21 @@ async fn run_auto_check_iteration(
                 kind: AutoCheckStatusKind::WaitingWindow,
                 message: "已刷新当前课程状态，等待打卡时间窗口开放。".into(),
                 schedule: Some(schedule),
+                next_retry_at: None,
             },
         );
         return;
     }
 
-    if !state.should_attempt_auto_check(
-        &schedule,
-        now_timestamp,
-        settings
-            .auto_check_interval_seconds
-            .max(MIN_AUTO_CHECK_INTERVAL_SECONDS),
-    ) {
+    let retry_after_seconds = settings
+        .auto_check_interval_seconds
+        .max(MIN_AUTO_CHECK_INTERVAL_SECONDS);
+    if !state.should_attempt_auto_check(&schedule, now_timestamp, retry_after_seconds) {
         debug!(
             schedule_id = %schedule.schedule_id,
             "auto check-in skipped because the retry window has not elapsed"
         );
+        let next_retry_at = state.next_auto_check_retry_at(&schedule, retry_after_seconds);
         update_auto_check_status(
             app,
             state,
@@ -120,6 +121,7 @@ async fn run_auto_check_iteration(
                 kind: AutoCheckStatusKind::Ready,
                 message: "当前课程可打卡，但仍在自动重试冷却时间内。".into(),
                 schedule: Some(schedule),
+                next_retry_at,
             },
         );
         return;
@@ -136,6 +138,7 @@ async fn run_auto_check_iteration(
             kind: AutoCheckStatusKind::Attempting,
             message: "已刷新当前课程状态，正在发起自动打卡。".into(),
             schedule: Some(schedule.clone()),
+            next_retry_at: None,
         },
     );
     match state
@@ -165,6 +168,7 @@ async fn run_auto_check_iteration(
                     .verified_signed_in
                     .unwrap_or(result.receipt.signed_in),
                 message: action_message.clone(),
+                timestamp_attempts: result.receipt.timestamp_attempts.clone(),
             });
             update_auto_check_status(
                 app,
@@ -175,6 +179,7 @@ async fn run_auto_check_iteration(
                     kind: AutoCheckStatusKind::Success,
                     message: action_message,
                     schedule: Some(result.schedule),
+                    next_retry_at: None,
                 },
             );
             info!(
@@ -186,13 +191,16 @@ async fn run_auto_check_iteration(
             );
         }
         Err(error) => {
+            let timestamp_attempts = error_timestamp_attempts(&error);
+            let error_message = error.to_string();
             state.record_auto_check_attempt(&schedule, now_timestamp, false);
             state.set_auto_check_last_action(AutoCheckLastAction {
                 attempted_at: now,
                 schedule_id: schedule_id.clone(),
                 course_name: course_name.clone(),
                 succeeded: false,
-                message: error.to_string(),
+                message: error_message.clone(),
+                timestamp_attempts,
             });
             update_auto_check_status(
                 app,
@@ -201,8 +209,9 @@ async fn run_auto_check_iteration(
                 AutoCheckStatus {
                     updated_at: Local::now(),
                     kind: AutoCheckStatusKind::Error,
-                    message: error.to_string(),
+                    message: error_message,
                     schedule: Some(schedule),
+                    next_retry_at: None,
                 },
             );
             warn!(
@@ -215,7 +224,54 @@ async fn run_auto_check_iteration(
     }
 }
 
+fn error_timestamp_attempts(
+    error: &iclass_core::CoreError,
+) -> Vec<iclass_domain::CheckInTimestampAttempt> {
+    match error {
+        iclass_core::CoreError::Session(session_error) => session_error
+            .timestamp_attempts()
+            .map(|attempts| attempts.to_vec())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 fn format_receipt_timestamp_message(receipt: &iclass_core::CheckInReceipt) -> String {
+    if !receipt.timestamp_attempts.is_empty() {
+        let attempted = receipt
+            .timestamp_attempts
+            .iter()
+            .take(12)
+            .map(|attempt| {
+                let status = if attempt.signed_in {
+                    "成功"
+                } else {
+                    "失败"
+                };
+                let detail = [attempt.status_code.as_deref(), attempt.message.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                if detail.is_empty() {
+                    format!("{} {}", attempt.timestamp, status)
+                } else {
+                    format!("{} {} {}", attempt.timestamp, status, detail)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" | ");
+        return format!(
+            "尝试时间戳 {} 个，{}{}",
+            receipt.timestamp_attempts.len(),
+            attempted,
+            if receipt.timestamp_attempts.len() > 12 {
+                " | 其余已省略"
+            } else {
+                ""
+            }
+        );
+    }
     let attempted = receipt
         .attempted_timestamps
         .iter()
